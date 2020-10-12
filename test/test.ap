@@ -1,0 +1,2 @@
+some_label:
+	mov a, 0x55

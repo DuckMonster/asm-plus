@@ -1,0 +1,27 @@
+{
+	"folders":
+	[
+		{
+			"path": "."
+		}
+	],
+
+	"settings": 
+	{
+		"ms_build_configs":
+		[
+			{
+				"name": "Debug",
+				"outputs":
+				[
+				]
+			},
+			{
+				"name": "Release",
+				"outputs":
+				[
+				]
+			},
+		]
+	}
+}
