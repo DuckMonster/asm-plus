@@ -1,4 +1,5 @@
 #include "log.h"
+#include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
 

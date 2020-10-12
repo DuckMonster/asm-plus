@@ -34,10 +34,22 @@ u32 in_size()
 
 u32 in_remaining()
 {
-	return buffer_size - (buffer_ptr - buffer);
+	return (u32)(buffer_size - (buffer_ptr - buffer));
 }
 
 char* in_ptr()
 {
 	return buffer_ptr;
+}
+
+void in_adv(int amount)
+{
+	buffer_ptr += amount;
+	if (buffer_ptr > buffer + buffer_size)
+		buffer_ptr = buffer + buffer_size;
+}
+
+bool in_eof()
+{
+	return (buffer_ptr) >= (buffer + buffer_size);
 }
