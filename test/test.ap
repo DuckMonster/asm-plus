@@ -1,2 +1,5 @@
-	mov a, b
-	jmp 0x00
+	mov a 0xFF
+	mov b 0xAA
+
+	mov b a
+	jmp 0x0000

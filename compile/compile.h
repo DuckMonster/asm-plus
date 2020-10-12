@@ -1,13 +1,22 @@
 #pragma once
 #include "parse.h"
 
-void compile_file(const char* path);
-void compile_instruction(Token* token);
+void compile_node_tree(Node* base, const char* target_path);
+void compile_instruction(Node_Instruction* inst);
 
-enum
+// Registers
+typedef struct
 {
-	INST_NULL,
-	INST_MOV,
-};
+	const char* name;
+	u8 code;
+	u8 size;
+} Register;
 
-u32 parse_inst(Token* token);
+typedef struct 
+{
+	u32 value;
+	u8 size;
+} Constant;
+
+bool resolve_register(Node* node, Register* out_reg);
+bool resolve_constant(Node* node, Constant* out_const);

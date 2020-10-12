@@ -8,5 +8,6 @@ enum
 };
 extern u32 log_lvl;
 
-void log(u32 level, const char* msg, ...);
+void log_write(u32 level, const char* msg, ...);
 void error(const char* msg, ...);
+void error_at(const char* ptr, u32 len, const char* msg, ...);
