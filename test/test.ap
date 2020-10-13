@@ -3,4 +3,5 @@ start:
 	mov b, 0xAA
 	mov b, a
 
+end:
 	jmp 0x04

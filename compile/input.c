@@ -57,6 +57,22 @@ bool in_eof()
 	return (buffer_ptr) >= (buffer + buffer_size);
 }
 
+i32 in_line_at(const char* ptr)
+{
+	i32 line;
+	i32 col;
+	in_line_col_at(ptr, &line, &col);
+	return line;
+}
+
+i32 in_col_at(const char* ptr)
+{
+	i32 line;
+	i32 col;
+	in_line_col_at(ptr, &line, &col);
+	return col;
+}
+
 void in_line_col_at(const char* ptr, i32* out_line, i32* out_col)
 {
 	i32 line = 0;

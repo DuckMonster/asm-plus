@@ -8,6 +8,16 @@
 Node* node_base = NULL;
 Node* node_cur = NULL;
 
+typedef struct Label_Entry_T Label_Entry;
+typedef struct Label_Entry_T
+{
+	Label label;
+	Node* node;
+
+	Label_Entry* next;
+} Label_Entry;
+Label_Entry* label_list = NULL;
+
 void compile_node_tree(Node* base, const char* target_path)
 {
 	out_begin(target_path);
@@ -20,6 +30,10 @@ void compile_node_tree(Node* base, const char* target_path)
 		{
 			case NODE_INST:
 				compile_instruction((Node_Instruction*)base);
+				break;
+
+			case NODE_LABEL:
+				compile_label((Node_Label*)base);
 				break;
 		}
 
@@ -54,9 +68,54 @@ void compile_instruction(Node_Instruction* inst)
 	error_at(inst->ptr, inst->len, "Unknown instruction '%.*s'", inst->len, inst->ptr);
 }
 
-void compile_label(Node_Label* lbl)
+void compile_label(Node_Label* node)
 {
-	lbl->value = out_offset();
+	Label label;
+	label.name = node->ptr;
+	label.name_len = node->len;
+	label.addr = out_offset();
+	label.addr_size = 2;
+
+	if (label_list == NULL)
+	{
+		label_list = (Label_Entry*)malloc(sizeof(Label_Entry));
+		memzero(label_list, sizeof(Label_Entry));
+
+		label_list->label = label;
+		label_list->node = node;
+	}
+	else
+	{
+		Label_Entry* ptr = label_list;
+		while(ptr)
+		{
+			// Name collision
+			if (ptr->label.name_len == label.name_len &&
+				memcmp(ptr->label.name, label.name, label.name_len) == 0)
+			{
+				u32 line = in_line_at(ptr->node->ptr);
+				error_at(node->ptr, node->len,
+					"Label '%.*s' is already defined on line %d",
+					label.name_len, label.len, line);
+
+				return;
+			}
+
+			if (!ptr->next)
+				break;
+
+			ptr = ptr->next;
+		}
+
+		Label_Entry* entry = (Label_Entry*)malloc(sizeof(Label_Entry))
+		memzero(entry, sizeof(Label_Entry));
+		entry->label = label;
+		entry->node = node;
+
+		ptr->next = entry;
+	}
+
+	log_writel(LOG_TRIVIAL, "%.*s: 0x%04X", node->len, node->ptr, node->value);
 }
 
 bool resolve_register(Node* node, Register* out_reg)

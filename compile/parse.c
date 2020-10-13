@@ -252,6 +252,10 @@ Node_Instruction* parse_instruction(Token token)
 Node_Label* parse_label(Token token)
 {
 	log_writel(LOG_TRIVIAL, "LABL '%.*s'", token.len, token.ptr);
-	Node_Label* label = node_add_t(Node_Label, parse_base);
+	Node_Label* label = node_push_t(Node_Label, parse_base);
+	label->type = NODE_LABEL;
+	label->len = token.len;
+	label->ptr = token.ptr;
+
 	return label;
 }
