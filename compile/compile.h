@@ -28,19 +28,11 @@ extern Instruction inst_list[MAX_INST];
 void compile_instruction(Node_Instruction* inst);
 bool resolve_instruction(Node_Instruction* node, Instruction* out_inst);
 
-// Constants
-typedef struct 
-{
-	u32 value;
-	u8 size;
-} Constant;
-bool resolve_constant(Node* node, Constant* out_const);
-
 // Labels
-typedef struct
+typedef struct Label_T Label;
+typedef struct Label_T
 {
-	const char* name;
-	u32 name_len;
+	Node* node;
 
 	u64 addr;
 	u8 addr_size;
@@ -49,3 +41,12 @@ typedef struct
 } Label;
 
 void compile_label(Node_Label* lbl);
+bool resolve_label(const char* name, u32 name_len, Label* out_label);
+
+// Constants
+typedef struct 
+{
+	u32 value;
+	u8 size;
+} Constant;
+bool resolve_constant(Node* node, Constant* out_const);
