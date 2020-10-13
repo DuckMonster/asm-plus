@@ -61,6 +61,7 @@ typedef struct
 } Node_Instruction;
 
 Node* parse_file(const char* file);
+Node_Instruction* parse_instruction(Token token);
 
 Node* node_add(u32 size, Node* base);
 #define node_add_t(type, base) ((type*)node_add(sizeof(type), base))

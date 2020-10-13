@@ -7,6 +7,8 @@ void compile_instruction(Node_Instruction* inst);
 // Registers
 typedef struct
 {
+	Node* node;
+
 	const char* name;
 	u8 code;
 	u8 size;
@@ -14,6 +16,8 @@ typedef struct
 
 typedef struct 
 {
+	Node* node;
+
 	u32 value;
 	u8 size;
 } Constant;

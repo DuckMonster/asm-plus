@@ -56,6 +56,7 @@ bool token_read(Token* out_token)
 
 		if (in_ptr()[0] == '0')
 		{
+			// Hex constants
 			if (strnicmp(in_ptr(), "0x", 2) == 0)
 			{
 				out_token->type = TOKEN_CONST_HEX;
@@ -70,6 +71,8 @@ bool token_read(Token* out_token)
 
 				return true;
 			}
+
+			// Binary constants
 			else if (strnicmp(in_ptr(), "0b", 2) == 0)
 			{
 				out_token->type = TOKEN_CONST_BIN;
@@ -86,6 +89,7 @@ bool token_read(Token* out_token)
 			}
 		}
 
+		// Regular :^)
 		while(!in_eof() && DIGIT(in_ptr()))
 		{
 			in_adv(1);
@@ -95,7 +99,12 @@ bool token_read(Token* out_token)
 		return true;
 	}
 
-	return false;
+	// Just return whatever symbol we found
+	out_token->ptr = in_ptr();
+	out_token->type = *in_ptr();
+	out_token->len = 1;
+	in_adv(1);
+	return true;
 }
 
 Node* parse_file(const char* file)
@@ -108,36 +117,52 @@ Node* parse_file(const char* file)
 	Token token;
 	while(token_read(&token))
 	{
-		Node_Instruction* inst = node_push_t(Node_Instruction, parse_base);
-		inst->ptr = token.ptr;
-		inst->len = token.len;
-		inst->type = NODE_INST;
-
-		// Read arguments
-		while(token_read(&token))
-		{
-			Node* arg = node_push_t(Node, inst->args);
-			arg->ptr = token.ptr;
-			arg->len = token.len;
-
-			switch(token.type)
-			{
-				case TOKEN_KEYWORD: arg->type = NODE_KEYWORD; break;
-				case TOKEN_CONST: arg->type = NODE_CONST; break;
-				case TOKEN_CONST_HEX: arg->type = NODE_CONST_HEX; break;
-				case TOKEN_CONST_BIN: arg->type = NODE_CONST_BIN; break;
-			}
-
-			if (!inst->args)
-				inst->args = arg;
-
-			inst->num_args++;
-		}
-
+		parse_instruction(token);
 		adv_line();
 	}
 
 	return parse_base;
+}
+
+Node_Instruction* parse_instruction(Token token)
+{
+	Node_Instruction* inst = node_push_t(Node_Instruction, parse_base);
+	inst->ptr = token.ptr;
+	inst->len = token.len;
+	inst->type = NODE_INST;
+
+	// Read arguments
+	while(token_read(&token))
+	{
+		Node* arg = node_push_t(Node, inst->args);
+		arg->ptr = token.ptr;
+		arg->len = token.len;
+
+		switch(token.type)
+		{
+			case TOKEN_KEYWORD: arg->type = NODE_KEYWORD; break;
+			case TOKEN_CONST: arg->type = NODE_CONST; break;
+			case TOKEN_CONST_HEX: arg->type = NODE_CONST_HEX; break;
+			case TOKEN_CONST_BIN: arg->type = NODE_CONST_BIN; break;
+		}
+
+		if (!inst->args)
+			inst->args = arg;
+
+		inst->num_args++;
+
+		// Read the separating comma
+		if (token_read(&token))
+		{
+			if (token.type != ',')
+			{
+				error_at(token.ptr, token.len, "Unexpected token; expected ','");
+				return inst;
+			}
+		}
+	}
+
+	return inst;
 }
 
 Node* node_add(u32 size, Node* base)

@@ -27,10 +27,21 @@ void compile_node_tree(Node* base, const char* target_path)
 	}
 
 	out_end();
+
+	if (error_count)
+		log_write(LOG_IMPORTANT, "Build failed (%d errors, %d warnings)", error_count, warning_count);
+	else if (warning_count)
+		log_write(LOG_IMPORTANT, "Build successful (%d warnings)", warning_count);
+	else
+		log_write(LOG_IMPORTANT, "Build successful");
 }
 
+// MOV
 void compile_mov_reg_c(Register dst, Constant src)
 {
+	if (src.size > 1)
+		warning_at(src.node->ptr, src.node->len, "Move constant bigger than 1 byte; will be truncated");
+
 	log_write(LOG_TRIVIAL, "MOV %s 0x%X", dst.name, src.value);
 	out_write_bits(0b01, 2);
 	out_write_bits(dst.code, 3);
@@ -49,6 +60,12 @@ void compile_mov_reg_reg(Register dst, Register src)
 
 void compile_mov(Node_Instruction* inst)
 {
+	if (inst->num_args != 2) 
+	{
+		error_at(inst->ptr, inst->len, "Invalid argument count; expected 2, found %d", inst->num_args);
+		return;
+	}
+
 	Node* dst = inst->args;
 	Node* src = dst->next;
 
@@ -65,6 +82,7 @@ void compile_mov(Node_Instruction* inst)
 			resolve_register(src, &src_r);
 
 			compile_mov_reg_reg(dst_r, src_r);
+			return;
 		}
 
 		// r < n
@@ -74,9 +92,31 @@ void compile_mov(Node_Instruction* inst)
 			resolve_constant(src, &src_c);
 
 			compile_mov_reg_c(dst_r, src_c);
+			return;
 		}
 	}
 
+	error_at(inst->ptr, inst->len, "Invalid mov arguments");
+}
+
+// JMP
+void compile_jmp_c(Constant c)
+{
+	//out_write_bits()
+}
+
+void compile_jmp(Node_Instruction* inst)
+{
+	if (inst->num_args != 1)
+	{
+		error_at(inst->ptr, inst->len, "Invalid argument count; expected jump address", inst->num_args);
+		return;
+	}
+
+	Constant dest;
+	resolve_constant(inst->args, &dest);
+
+	compile_jmp_c(dest);
 }
 
 void compile_instruction(Node_Instruction* inst)
@@ -92,6 +132,8 @@ void compile_instruction(Node_Instruction* inst)
 
 bool resolve_register(Node* node, Register* out_reg)
 {
+	out_reg->node = node;
+
 	if (node->len == 1)
 	{
 		out_reg->size = 1;
@@ -116,6 +158,9 @@ bool resolve_register(Node* node, Register* out_reg)
 
 bool resolve_constant(Node* node, Constant* out_const)
 {
+	out_const->node = node;
+	out_const->value = 0;
+
 	switch(node->type)
 	{
 		case NODE_CONST:
