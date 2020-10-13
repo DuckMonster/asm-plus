@@ -5,30 +5,48 @@
 Node* parse_base = NULL;
 Node* parse_cur = NULL;
 
-void adv_line()
+bool adv_line()
 {
 	// Advance until _at least_ the newline
 	while(!in_eof() && !NEWLINE(in_ptr()))
 		in_adv(1);
 
-	// Then continue advancing until we find something interesting
-	while(!in_eof() && (WHITESPACE(in_ptr()) || NEWLINE(in_ptr())))
+	// Then continue advancing until we're past it
+	while(!in_eof() && NEWLINE(in_ptr()))
 		in_adv(1);
+
+	return !in_eof();
 }
 
-void adv_whitespace()
+bool adv_whitespace()
 {
 	while(!in_eof() && WHITESPACE(in_ptr()))
 		in_adv(1);
+
+	return !in_eof();
 }
 
+// Reads the next token on the line, skipping over whitespace
 bool token_read(Token* out_token)
 {
 	adv_whitespace();
+	return token_read_immedate(out_token);
+}
+
+// Reads the token located immedately at the current input ptr, without skipping whitespace
+// If no token found (excluding whitespace), returns false
+bool token_read_immedate(Token* out_token)
+{
 	if (in_eof())
 		return false;
 
 	if (NEWLINE(in_ptr()))
+		return false;
+
+	if (WHITESPACE(in_ptr()))
+		return false;
+
+	if (COMMENT(in_ptr()))
 		return false;
 
 	// Keywords
@@ -107,64 +125,6 @@ bool token_read(Token* out_token)
 	return true;
 }
 
-Node* parse_file(const char* file)
-{
-	in_load(file);
-	log_write(LOG_TRIVIAL, "Parsing '%s'", file);
-	parse_base = parse_cur = node_add_t(Node, NULL);
-
-	// Read instruction
-	Token token;
-	while(token_read(&token))
-	{
-		parse_instruction(token);
-		adv_line();
-	}
-
-	return parse_base;
-}
-
-Node_Instruction* parse_instruction(Token token)
-{
-	Node_Instruction* inst = node_push_t(Node_Instruction, parse_base);
-	inst->ptr = token.ptr;
-	inst->len = token.len;
-	inst->type = NODE_INST;
-
-	// Read arguments
-	while(token_read(&token))
-	{
-		Node* arg = node_push_t(Node, inst->args);
-		arg->ptr = token.ptr;
-		arg->len = token.len;
-
-		switch(token.type)
-		{
-			case TOKEN_KEYWORD: arg->type = NODE_KEYWORD; break;
-			case TOKEN_CONST: arg->type = NODE_CONST; break;
-			case TOKEN_CONST_HEX: arg->type = NODE_CONST_HEX; break;
-			case TOKEN_CONST_BIN: arg->type = NODE_CONST_BIN; break;
-		}
-
-		if (!inst->args)
-			inst->args = arg;
-
-		inst->num_args++;
-
-		// Read the separating comma
-		if (token_read(&token))
-		{
-			if (token.type != ',')
-			{
-				error_at(token.ptr, token.len, "Unexpected token; expected ','");
-				return inst;
-			}
-		}
-	}
-
-	return inst;
-}
-
 Node* node_add(u32 size, Node* base)
 {
 	Node* new_node = (Node*)malloc(size);
@@ -202,4 +162,96 @@ Node* node_push(u32 size, Node* base)
 	}
 
 	return new_node;
+}
+
+Node* parse_file(const char* file)
+{
+	in_load(file);
+	log_writel(LOG_MEDIUM, "Parsing '%s'", file);
+	parse_base = parse_cur = node_add_t(Node, NULL);
+
+	// Iterate through all lines in this file
+	do
+	{
+		// Read all tokens on this line
+		Token token;
+		while(token_read(&token))
+		{
+			Token symbol;
+			if (token_read_immedate(&symbol))
+			{
+				// We just read a label
+				switch(symbol.type)
+				{
+					case ':':
+						parse_label(token);
+						break;
+
+					default:
+						error_at(symbol.ptr, symbol.len, "Unexpected token");
+						adv_line();
+						break;
+				}
+			}
+			else
+			{
+				parse_instruction(token);
+			}
+		}
+	} while(adv_line());
+
+	log_writel(LOG_MEDIUM, "", file);
+	return parse_base;
+}
+
+Node_Instruction* parse_instruction(Token token)
+{
+	log_write(LOG_TRIVIAL, "INST '%.*s'", token.len, token.ptr);
+
+	Node_Instruction* inst = node_push_t(Node_Instruction, parse_base);
+	inst->ptr = token.ptr;
+	inst->len = token.len;
+	inst->type = NODE_INST;
+
+	// Read arguments
+	while(token_read(&token))
+	{
+		Node* arg = node_push_t(Node, inst->args);
+		arg->ptr = token.ptr;
+		arg->len = token.len;
+
+		switch(token.type)
+		{
+			case TOKEN_KEYWORD: arg->type = NODE_KEYWORD; break;
+			case TOKEN_CONST: arg->type = NODE_CONST; break;
+			case TOKEN_CONST_HEX: arg->type = NODE_CONST_HEX; break;
+			case TOKEN_CONST_BIN: arg->type = NODE_CONST_BIN; break;
+		}
+
+		if (!inst->args)
+			inst->args = arg;
+
+		log_write(LOG_TRIVIAL, " '%.*s'", token.len, token.ptr);
+		inst->num_args++;
+
+		// Read the separating comma
+		if (token_read(&token))
+		{
+			if (token.type != ',')
+			{
+				error_at(token.ptr, token.len, "Unexpected token; expected ','");
+				return inst;
+			}
+		}
+	}
+
+	log_writel(LOG_TRIVIAL, "");
+	return inst;
+}
+
+Node_Label* parse_label(Token token)
+{
+	log_writel(LOG_TRIVIAL, "LABL '%.*s'", token.len, token.ptr);
+	Node_Label* label = node_add_t(Node_Label, parse_base);
+	return label;
 }

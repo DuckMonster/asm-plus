@@ -4,13 +4,20 @@ FILE* file;
 
 u8 bit_buffer;
 u8 bit_offset;
+u64 offset;
 
 void out_begin(const char* path)
 {
 	file = fopen(path, "wb");
 
+	offset = 0;
 	bit_buffer = 0;
 	bit_offset = 0;
+}
+
+u64 out_offset()
+{
+	return (u64)ftell(file);
 }
 
 void out_write_bits(u8 bits, u8 count)

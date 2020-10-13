@@ -15,6 +15,7 @@ enum
 #define DIGIT(ptr) ((*(ptr)) >= '0' && (*(ptr)) <= '9')
 #define HEX(ptr) (((*(ptr)) >= '0' && (*(ptr)) <= '9') || ((*(ptr)) >= 'A' && (*(ptr)) <= 'F') || ((*(ptr)) >= 'a' && (*(ptr)) <= 'f'))
 #define BIN(ptr) ((*(ptr)) == '0' || (*(ptr)) == '1')
+#define COMMENT(ptr) (*(ptr) == ';')
 
 typedef struct
 {
@@ -24,6 +25,7 @@ typedef struct
 } Token;
 
 bool token_read(Token* out_token);
+bool token_read_immedate(Token* out_token);
 
 /* NODES */
 enum
@@ -52,7 +54,14 @@ typedef struct Node_T
 	NODE_IMPL();
 } Node;
 
-typedef struct
+Node* node_add(u32 size, Node* base);
+#define node_add_t(type, base) ((type*)node_add(sizeof(type), base))
+Node* node_push(u32 size, Node* base);
+#define node_push_t(type, base) ((type*)node_push(sizeof(type), base))
+
+Node* parse_file(const char* file);
+
+typedef struct Node_Instruction_T
 {
 	NODE_IMPL();
 
@@ -60,10 +69,14 @@ typedef struct
 	Node* args;
 } Node_Instruction;
 
-Node* parse_file(const char* file);
 Node_Instruction* parse_instruction(Token token);
 
-Node* node_add(u32 size, Node* base);
-#define node_add_t(type, base) ((type*)node_add(sizeof(type), base))
-Node* node_push(u32 size, Node* base);
-#define node_push_t(type, base) ((type*)node_push(sizeof(type), base))
+typedef struct Node_Label_T
+{
+	NODE_IMPL();
+
+	u32 size;
+	u64 value;
+} Node_Label;
+
+Node_Label* parse_label(Token token);

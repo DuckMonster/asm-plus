@@ -11,6 +11,7 @@ extern u32 error_count;
 extern u32 warning_count;
 
 void log_write(u32 level, const char* msg, ...);
+void log_writel(u32 level, const char* msg, ...);
 void error(const char* msg, ...);
 void error_at(const char* ptr, u32 len, const char* msg, ...);
 

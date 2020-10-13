@@ -10,7 +10,7 @@ u32 log_lvl = LOG_TRIVIAL;
 u32 error_count = 0;
 u32 warning_count = 0;
 
-void log_write(u32 level, const char* msg, ...)
+void log_writel(u32 level, const char* msg, ...)
 {
 	if (level < log_lvl)
 		return;
@@ -21,6 +21,17 @@ void log_write(u32 level, const char* msg, ...)
 	va_end(vl);
 
 	printf("\n");
+}
+
+void log_write(u32 level, const char* msg, ...)
+{
+	if (level < log_lvl)
+		return;
+
+	va_list vl;
+	va_start(vl, msg);
+	vprintf(msg, vl);
+	va_end(vl);
 }
 
 void error(const char* msg, ...)
@@ -66,8 +77,6 @@ void print_code_preview(const char* ptr, u32 len)
 
 void error_at(const char* ptr, u32 len, const char* msg, ...)
 {
-	print_code_preview(ptr, len);
-
 	u32 line, col;
 	in_line_col_at(ptr, &line, &col);
 
@@ -79,14 +88,14 @@ void error_at(const char* ptr, u32 len, const char* msg, ...)
 	va_end(vl);
 
 	printf("\n");
+	print_code_preview(ptr, len);
+	printf("\n");
 
 	error_count++;
 }
 
 void warning_at(const char* ptr, u32 len, const char* msg, ...)
 {
-	print_code_preview(ptr, len);
-
 	u32 line, col;
 	in_line_col_at(ptr, &line, &col);
 
@@ -97,6 +106,8 @@ void warning_at(const char* ptr, u32 len, const char* msg, ...)
 	vprintf(msg, vl);
 	va_end(vl);
 
+	printf("\n");
+	print_code_preview(ptr, len);
 	printf("\n");
 
 	warning_count++;

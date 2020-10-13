@@ -26,7 +26,7 @@ void in_load(const char* path)
 	buffer = buffer_ptr = malloc(buffer_size);
 	fread(buffer, 1, buffer_size, file);
 
-	log_write(LOG_TRIVIAL, "Loaded file '%s', %d bytes", path, buffer_size);
+	log_writel(LOG_TRIVIAL, "Loaded file '%s', %d bytes", path, buffer_size);
 	fclose(file);
 }
 
@@ -111,6 +111,9 @@ const char* in_line_start(const char* ptr)
 	// Carriage return
 	if (*ptr == '\r')
 		ptr--;
+
+	if (ptr == buffer)
+		return ptr;
 
 	while(ptr-- > buffer)
 	{
