@@ -4,9 +4,4 @@ start:
 	mov b, a
 
 end:
-	jmp the_very_end
-
-
-the_very_end:
-	mov a, 0xFF
-	mov b, 0xAA
+	jmp end

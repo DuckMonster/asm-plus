@@ -1,0 +1,3 @@
+﻿  compile.c
+D:\Prog\asm-plus\compile\compile.c(109,1): warning C4244: 'initializing': conversion from 'double' to 'u32', possible loss of data
+  compile.vcxproj -> D:\Prog\asm-plus\bin\Debug\ap-compile.exe
