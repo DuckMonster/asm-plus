@@ -64,8 +64,6 @@ void compile_node_tree(Node* base, const char* target_path)
 		compile_symbol_ref(symbol_refs[i]);
 
 	log_writel(LOG_MEDIUM, "Compile done (%.2f ms)", timer_pop_ms());
-
-	out_end();
 }
 
 /* REGISTERS */

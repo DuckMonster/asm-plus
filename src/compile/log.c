@@ -6,7 +6,7 @@
 #include "input.h"
 #include "parse.h"
 
-u32 log_lvl = LOG_IMPORTANT;
+u32 log_lvl = LOG_TRIVIAL;
 u32 error_count = 0;
 u32 warning_count = 0;
 

@@ -1,7 +1,7 @@
 start:
-	mov a, 0xFF
+	mov a, 0xFF ; This is a comment
 	mov b, 0xAA
 	mov b, a
+	; This is another comment
 
-end:
-	jmp end
+end: jmp end
