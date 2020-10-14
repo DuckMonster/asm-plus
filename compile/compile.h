@@ -2,6 +2,9 @@
 #define MAX_REG 0x100
 #define MAX_INST 0x100
 
+#define MAX_SYMBOL 1024
+#define MAX_SYMBOL_REF 1024
+
 #include "parse.h"
 
 void compile_node_tree(Node* base, const char* target_path);
@@ -28,35 +31,31 @@ extern Instruction inst_list[MAX_INST];
 void compile_instruction(Node_Instruction* inst);
 bool resolve_instruction(Node_Instruction* node, Instruction* out_inst);
 
-// Labels
-typedef struct Label_T Label;
-typedef struct Label_T
+// Symbols
+typedef struct
 {
 	Node* node;
 
+	bool compiled;
 	u64 addr;
-	u8 addr_size;
+} Symbol;
 
-	Label* next;
-} Label;
+void preprocess_label(Node* lbl);
+void compile_label(Node* lbl);
+bool resolve_symbol(const char* name, u32 name_len, Symbol** out_symbol);
 
-void compile_label(Node_Label* lbl);
-bool resolve_label(const char* name, u32 name_len, Label* out_label);
-
-// Label lookups
-typedef struct Label_Lookup_T Label_Lookup;
-typedef struct Label_Lookup_T
+// Symbol reference
+typedef struct
 {
-	const char* name;
-	u32 name_len;
+	Symbol* symbol;
+	u32 offset;
 
-	u64 addr;
-	u8 addr_size;
+	u64 replace_addr;
+} Symbol_Reference;
 
-	Label_Lookup* next;
-} Label_Lookup;
-
-void add_label_lookup(Node* node, u64 addr, u8 size);
+bool resolve_symbol_ref(Node* node, Symbol_Reference* out_ref);
+void defer_symbol_ref(Symbol_Reference ref);
+void compile_symbol_ref(Symbol_Reference ref);
 
 // Constants
 typedef struct 
@@ -64,4 +63,5 @@ typedef struct
 	u32 value;
 	u8 size;
 } Constant;
+
 bool resolve_constant(Node* node, Constant* out_const);

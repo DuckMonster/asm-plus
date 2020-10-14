@@ -71,13 +71,4 @@ typedef struct Node_Instruction_T
 } Node_Instruction;
 
 Node_Instruction* parse_instruction(Token token);
-
-typedef struct Node_Label_T
-{
-	NODE_IMPL();
-
-	u32 size;
-	u64 value;
-} Node_Label;
-
-Node_Label* parse_label(Token token);
+Node* parse_label(Token token);

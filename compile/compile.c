@@ -9,42 +9,68 @@
 Node* node_base = NULL;
 Node* node_cur = NULL;
 
-Label root_label = { NULL, 0, 0, NULL };
-Label_Lookup root_label_lookup = { NULL, 0, 0, 0, NULL };
+Symbol symbols[MAX_SYMBOL];
+u32 num_symbols = 0;
+
+Symbol_Reference symbol_refs[MAX_SYMBOL_REF];
+u32 num_symbol_refs = 0;
 
 void compile_node_tree(Node* base, const char* target_path)
 {
-	out_begin(target_path);
+	out_begin();
 
-	/* COMPILE NODES */
-	log_writel(LOG_MEDIUM, "Compiling '%s'", base->src_path);
-	while(base)
+	/* PRE-PROCESS LABELS */
+	log_writel(LOG_MEDIUM, "Preprocessing labels", base->src_path);
+
+	Node* ptr = base;
+	while(ptr)
 	{
-		switch(base->type)
+		switch(ptr->type)
 		{
-			case NODE_INST:
-				compile_instruction((Node_Instruction*)base);
-				break;
-
 			case NODE_LABEL:
-				compile_label((Node_Label*)base);
+				preprocess_label(ptr);
 				break;
 		}
 
-		base = base->next;
+		ptr = ptr->next;
 	}
 
-	/* RESOLVE LABEL LOOKUPS */
-	log_writel(LOG_MEDIUM, "Resolving labels");
+	/* COMPILE NODES */
+	log_writel(LOG_MEDIUM, "Compiling", base->src_path);
 
-	out_end();
+	ptr = base;
+	while(ptr)
+	{
+		switch(ptr->type)
+		{
+			case NODE_INST:
+				compile_instruction((Node_Instruction*)ptr);
+				break;
+
+			case NODE_LABEL:
+				compile_label(ptr);
+				break;
+		}
+
+		ptr = ptr->next;
+	}
+
+	/* COMPILE SYMBOL REFERENCES */
+	log_writel(LOG_MEDIUM, "Compiling symbol references");
+	for(u32 i=0; i<num_symbol_refs; ++i)
+		compile_symbol_ref(symbol_refs[i]);
 
 	if (error_count)
 		log_writel(LOG_IMPORTANT, "Build failed (%d errors, %d warnings)", error_count, warning_count);
 	else if (warning_count)
 		log_writel(LOG_IMPORTANT, "Build successful (%d warnings)", warning_count);
 	else
+	{
 		log_writel(LOG_IMPORTANT, "Build successful");
+		out_flush(target_path);
+	}
+
+	out_end();
 }
 
 /* REGISTERS */
@@ -109,70 +135,77 @@ bool resolve_instruction(Node_Instruction* inst, Instruction* out_inst)
 	return false;
 }
 
-/* LABELS */
-void compile_label(Node_Label* node)
+/* SYMBOLS */
+void preprocess_label(Node* lbl)
 {
-	Label exist_label;
-	if (resolve_label(node->ptr, node->len, &exist_label))
+	Symbol* sym;
+	if (resolve_symbol(lbl->ptr, lbl->len, &sym))
 	{
 		error_at(
-			exist_label.node->ptr, exist_label.node->len,
-			"Label '%.*s' already defined on line %d",
-			node->len, node->ptr, in_line_at(exist_label.node->ptr));
+			lbl->ptr, lbl->len,
+			"Symbol '%.*s' already defined on line %d",
+			lbl->len, lbl->ptr, in_line_at(sym->node->ptr));
 		return;
 	}
 
-	Label* last_lbl = &root_label;
-	while(last_lbl->next)
-		last_lbl = last_lbl->next;
-
-	Label* new_lbl = malloc(sizeof(Label));
-	memzero(new_lbl, sizeof(Label));
-	new_lbl->node = (Node*)node;
-	new_lbl->addr = out_offset();
-	new_lbl->addr_size = 2;
-	last_lbl->next = new_lbl;
-
-	log_writel(LOG_TRIVIAL, "%.*s: 0x%04X", node->len, node->ptr, new_lbl->addr);
+	sym = &symbols[num_symbols++];
+	memzero(sym, sizeof(Symbol));
+	sym->node = (Node*)lbl;
 }
 
-bool resolve_label(const char* name, u32 name_len, Label* out_label)
+void compile_label(Node* lbl)
 {
-	Label* ptr = root_label.next;
-	while(ptr)
+	Symbol* sym;
+	if (!resolve_symbol(lbl->ptr, lbl->len, &sym))
 	{
-		if (ptr->node->len== name_len && memcmp(ptr->node->ptr, name, name_len))
+		error_at(lbl->ptr, lbl->len, "Label '%.*s' did not compile to a defined symbol", lbl->len, lbl->ptr);
+		return;
+	}
+
+	sym->compiled = true;
+	sym->addr = out_offset();
+	log_writel(LOG_TRIVIAL, "%.*s: 0x%04X", lbl->len, lbl->ptr, sym->addr);
+}
+
+bool resolve_symbol(const char* name, u32 name_len, Symbol** out_symbol)
+{
+	for(u32 i=0; i<num_symbols; ++i)
+	{
+		Symbol* sym = &symbols[i];
+		if (sym->node->len == name_len && memcmp(sym->node->ptr, name, name_len) == 0)
 		{
-			*out_label = *ptr;
+			*out_symbol = sym;
 			return true;
 		}
-
-		ptr = ptr->next;
 	}
 
 	return false;
 }
 
-/* LABEL LOOKUPS */
-void add_label_lookup(Node* node, u64 addr, u8 size)
+/* SYMBOL REFERENCES */
+bool resolve_symbol_ref(Node* node, Symbol_Reference* out_ref)
 {
-	Label_Lookup* lookup = (Label_Lookup*)malloc(sizeof(Label_Lookup));
-	memzero(lookup, sizeof(Label_Lookup));
+	Symbol* sym;
+	if (!resolve_symbol(node->ptr, node->len, &sym))
+		return false;
 
-	lookup->name = node->ptr;
-	lookup->name_len = node->len;
-	lookup->addr = addr;
-	lookup->addr_size = size;
+	out_ref->symbol = sym;
+	out_ref->offset = 0;
+	out_ref->replace_addr = 0;
+	return true;
+}
 
-	// Find last
-	Label_Lookup* ptr = &root_label_lookup;
-	while(ptr->next)
-	{
-		ptr = ptr->next;
-	}
+void defer_symbol_ref(Symbol_Reference ref)
+{
+	symbol_refs[num_symbol_refs++] = ref;
+}
 
-	ptr->next = lookup;
-	log_writel(LOG_TRIVIAL, "0x%04X (%d) <- '%.*s'", addr, size, node->len, node->ptr);
+void compile_symbol_ref(Symbol_Reference ref)
+{
+	out_seek(ref.replace_addr);
+	out_write_u16((u16)ref.symbol->addr);
+
+	log_writel(LOG_TRIVIAL, "0x%04X <- 0x%04X", ref.replace_addr, ref.symbol->addr);
 }
 
 /* CONSTANTS */

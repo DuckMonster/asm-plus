@@ -83,9 +83,14 @@ void compile_jmp_c(Constant c, Node* c_node)
 	out_write_u16(c.value);
 }
 
-void compile_jmp_addr(Address addr, Node* addr_node)
+void compile_jmp_symbol(Symbol_Reference sym, Node* sym_node)
 {
+	log_writel(LOG_TRIVIAL, "JMP '%.*s'", sym.symbol->node->len, sym.symbol->node->ptr);
+	out_write_u8(0xC3);
 
+	sym.replace_addr = out_offset();
+	defer_symbol_ref(sym);
+	out_write_u16(0x00);
 }
 
 void compile_jmp(Node_Instruction* inst)
@@ -96,10 +101,32 @@ void compile_jmp(Node_Instruction* inst)
 		return;
 	}
 
-	Constant dest;
-	resolve_constant(inst->args, &dest);
+	Node* arg = inst->args;
+	switch(arg->type)
+	{
+		case NODE_CONST:
+		case NODE_CONST_HEX:
+		case NODE_CONST_BIN:
+			Constant dest;
+			resolve_constant(arg, &dest);
+			compile_jmp_c(dest, arg);
+			break;
 
-	compile_jmp_c(dest, inst->args);
+		case NODE_KEYWORD:
+			Symbol_Reference sym;
+			if (!resolve_symbol_ref(arg, &sym))
+			{
+				error_at(arg->ptr, arg->len, "Unresolved symbol '%.*s'", arg->len, arg->ptr);
+				return;
+			}
+
+			compile_jmp_symbol(sym, arg);
+			break;
+
+		default:
+			error_at(arg->ptr, arg->len, "Invalid jmp argument");
+			break;
+	}
 }
 
 Instruction inst_list[MAX_INST] =
