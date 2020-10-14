@@ -59,7 +59,7 @@ void compile_mov(Node_Instruction* inst)
 		}
 
 		// r < n
-		if (src->type == NODE_CONST || src->type == NODE_CONST_HEX || src->type == NODE_CONST_BIN)
+		if (src->type == NODE_CONST)
 		{
 			Constant src_c;
 			resolve_constant(src, &src_c);
@@ -105,8 +105,6 @@ void compile_jmp(Node_Instruction* inst)
 	switch(arg->type)
 	{
 		case NODE_CONST:
-		case NODE_CONST_HEX:
-		case NODE_CONST_BIN:
 			Constant dest;
 			resolve_constant(arg, &dest);
 			compile_jmp_c(dest, arg);

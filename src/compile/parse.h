@@ -35,14 +35,12 @@ enum
 	NODE_KEYWORD,
 	NODE_LABEL,
 	NODE_CONST,
-	NODE_CONST_HEX,
-	NODE_CONST_BIN,
+	NODE_MEM,
 };
 
 #define NODE_IMPL()\
 u32 type;\
 \
-const char* src_path;\
 const char* ptr;\
 u32 len;\
 \
@@ -55,10 +53,9 @@ typedef struct Node_T
 	NODE_IMPL();
 } Node;
 
-Node* node_add(u32 size, Node* base);
-#define node_add_t(type, base) ((type*)node_add(sizeof(type), base))
-Node* node_push(u32 size, Node* base);
-#define node_push_t(type, base) ((type*)node_push(sizeof(type), base))
+Node* node_make(u32 size, Token token);
+#define node_make_t(type, token) ((type*)node_make(sizeof(type), token))
+void node_push(Node* base, Node* node);
 
 Node* parse_file(const char* file);
 
@@ -71,4 +68,24 @@ typedef struct Node_Instruction_T
 } Node_Instruction;
 
 Node_Instruction* parse_instruction(Token token);
+
+Node* parse_expression();
 Node* parse_label(Token token);
+
+typedef struct
+{
+	NODE_IMPL();
+
+	u64 value;
+	u8 size;
+} Node_Const;
+Node_Const* parse_const(Token token);
+
+typedef struct
+{
+	NODE_IMPL();
+
+	Node* expr;
+} Node_Memory;
+
+Node_Memory* parse_memory(Token token);

@@ -60,7 +60,7 @@ void compile_symbol_ref(Symbol_Reference ref);
 // Constants
 typedef struct 
 {
-	u32 value;
+	u64 value;
 	u8 size;
 } Constant;
 

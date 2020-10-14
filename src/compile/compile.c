@@ -23,7 +23,7 @@ void compile_node_tree(Node* base, const char* target_path)
 	log_writel(LOG_IMPORTANT, in_filename());
 
 	/* PRE-PROCESS LABELS */
-	log_writel(LOG_MEDIUM, "Preprocessing labels", base->src_path);
+	log_writel(LOG_MEDIUM, "Preprocessing labels");
 
 	Node* ptr = base;
 	while(ptr)
@@ -39,7 +39,7 @@ void compile_node_tree(Node* base, const char* target_path)
 	}
 
 	/* COMPILE NODES */
-	log_writel(LOG_MEDIUM, "Compiling", base->src_path);
+	log_writel(LOG_MEDIUM, "Compiling");
 
 	ptr = base;
 	while(ptr)
@@ -210,20 +210,8 @@ void compile_symbol_ref(Symbol_Reference ref)
 /* CONSTANTS */
 bool resolve_constant(Node* node, Constant* out_const)
 {
-	out_const->value = 0;
-
-	switch(node->type)
-	{
-		case NODE_CONST:
-			sscanf(node->ptr, "%d", &out_const->value);
-			out_const->size = ((u32)log2(out_const->value) / 8) + 1;
-			return true;
-
-		case NODE_CONST_HEX:
-			sscanf(node->ptr + 2, "%x", &out_const->value);
-			out_const->size = ((node->len - 3) / 2) + 1;
-			return true;
-	}
-
-	return false;
+	Node_Const* const_node = (Node_Const*)node;
+	out_const->value = const_node->value;
+	out_const->size = const_node->size;
+	return true;
 }
