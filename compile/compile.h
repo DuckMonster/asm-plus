@@ -43,6 +43,21 @@ typedef struct Label_T
 void compile_label(Node_Label* lbl);
 bool resolve_label(const char* name, u32 name_len, Label* out_label);
 
+// Label lookups
+typedef struct Label_Lookup_T Label_Lookup;
+typedef struct Label_Lookup_T
+{
+	const char* name;
+	u32 name_len;
+
+	u64 addr;
+	u8 addr_size;
+
+	Label_Lookup* next;
+} Label_Lookup;
+
+void add_label_lookup(Node* node, u64 addr, u8 size);
+
 // Constants
 typedef struct 
 {

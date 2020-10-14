@@ -4,18 +4,20 @@
 #include <math.h>
 #include "output.h"
 #include "log.h"
+#include "input.h"
 
 Node* node_base = NULL;
 Node* node_cur = NULL;
 
 Label root_label = { NULL, 0, 0, NULL };
+Label_Lookup root_label_lookup = { NULL, 0, 0, 0, NULL };
 
 void compile_node_tree(Node* base, const char* target_path)
 {
 	out_begin(target_path);
 
+	/* COMPILE NODES */
 	log_writel(LOG_MEDIUM, "Compiling '%s'", base->src_path);
-
 	while(base)
 	{
 		switch(base->type)
@@ -31,6 +33,9 @@ void compile_node_tree(Node* base, const char* target_path)
 
 		base = base->next;
 	}
+
+	/* RESOLVE LABEL LOOKUPS */
+	log_writel(LOG_MEDIUM, "Resolving labels");
 
 	out_end();
 
@@ -123,15 +128,51 @@ void compile_label(Node_Label* node)
 
 	Label* new_lbl = malloc(sizeof(Label));
 	memzero(new_lbl, sizeof(Label));
-	new_lbl->node = node;
-	new_lbl->addr = 2;
+	new_lbl->node = (Node*)node;
+	new_lbl->addr = out_offset();
+	new_lbl->addr_size = 2;
 	last_lbl->next = new_lbl;
 
-	log_writel(LOG_TRIVIAL, "%.*s: 0x%04X", node->len, node->ptr, node->value);
+	log_writel(LOG_TRIVIAL, "%.*s: 0x%04X", node->len, node->ptr, new_lbl->addr);
 }
 
 bool resolve_label(const char* name, u32 name_len, Label* out_label)
 {
+	Label* ptr = root_label.next;
+	while(ptr)
+	{
+		if (ptr->node->len== name_len && memcmp(ptr->node->ptr, name, name_len))
+		{
+			*out_label = *ptr;
+			return true;
+		}
+
+		ptr = ptr->next;
+	}
+
+	return false;
+}
+
+/* LABEL LOOKUPS */
+void add_label_lookup(Node* node, u64 addr, u8 size)
+{
+	Label_Lookup* lookup = (Label_Lookup*)malloc(sizeof(Label_Lookup));
+	memzero(lookup, sizeof(Label_Lookup));
+
+	lookup->name = node->ptr;
+	lookup->name_len = node->len;
+	lookup->addr = addr;
+	lookup->addr_size = size;
+
+	// Find last
+	Label_Lookup* ptr = &root_label_lookup;
+	while(ptr->next)
+	{
+		ptr = ptr->next;
+	}
+
+	ptr->next = lookup;
+	log_writel(LOG_TRIVIAL, "0x%04X (%d) <- '%.*s'", addr, size, node->len, node->ptr);
 }
 
 /* CONSTANTS */

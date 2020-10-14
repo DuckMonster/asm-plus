@@ -83,6 +83,11 @@ void compile_jmp_c(Constant c, Node* c_node)
 	out_write_u16(c.value);
 }
 
+void compile_jmp_addr(Address addr, Node* addr_node)
+{
+
+}
+
 void compile_jmp(Node_Instruction* inst)
 {
 	if (inst->num_args != 1)
