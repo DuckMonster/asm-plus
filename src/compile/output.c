@@ -24,6 +24,11 @@ void out_flush(const char* path)
 {
 	timer_push();
 	FILE* file = fopen(path, "wb");
+	if (!file)
+	{
+		error("Failed to flush file '%s'", path);
+		return;
+	}
 
 	if (buffer != NULL)
 		fwrite(buffer, 1, file_size, file);

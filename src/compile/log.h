@@ -1,4 +1,6 @@
 #pragma once
+typedef struct Node_T Node;
+
 enum
 {
 	LOG_TRIVIAL,

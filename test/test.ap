@@ -1,7 +1,7 @@
 start:
-	mov b, 0xAA
+	;mov b, 0xAA
+	;#0xFF 0x55
 	mov b, a
-	mov [0x8000], a
 
 end:
-	jmp end
+	;jmp end

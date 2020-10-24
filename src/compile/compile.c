@@ -53,6 +53,10 @@ void compile_node_tree(Node* base, const char* target_path)
 			case NODE_LABEL:
 				compile_label(ptr);
 				break;
+
+			case NODE_RAW:
+				compile_raw((Node_Raw*)ptr);
+				break;
 		}
 
 		ptr = ptr->next;
@@ -64,6 +68,33 @@ void compile_node_tree(Node* base, const char* target_path)
 		compile_symbol_ref(symbol_refs[i]);
 
 	log_writel(LOG_MEDIUM, "Compile done (%.2f ms)", timer_pop_ms());
+}
+
+void compile_raw(Node_Raw* raw)
+{
+	Node* val = raw->values;
+	while(val)
+	{
+		switch(val->type)
+		{
+			case NODE_CONST:
+				Constant cnst;
+				if (!resolve_constant(val, &cnst))
+				{
+					error_at(val->ptr, val->len, "Unresolved constant value");
+					break;
+				}
+
+				out_write(&cnst.value, cnst.size);
+				break;
+
+			default:
+				error_at(val->ptr, val->len, "Invalid raw data");
+				break;
+		}
+
+		val = val->next;
+	}
 }
 
 /* REGISTERS */
@@ -92,22 +123,16 @@ bool resolve_register(Node* node, Register* out_reg)
 }
 
 /* INSTRUCTIONS */
-void compile_instruction(Node_Instruction* inst)
+void compile_instruction(Node_Instruction* node)
 {
-	// Find instruction in 'inst_list'
-	for(u32 i=0; i<MAX_INST; ++i)
+	Instruction inst;
+	if (!resolve_instruction(node, &inst))
 	{
-		if (inst_list[i].name == NULL)
-			break;
-
-		if (strnicmp(inst->ptr, inst_list[i].name, inst->len) == 0)
-		{
-			inst_list[i].func(inst);
-			return;
-		}
+		error_at(node->ptr, node->len, "Unknown instruction '%.*s'", node->len, node->ptr);
+		return;
 	}
 
-	error_at(inst->ptr, inst->len, "Unknown instruction '%.*s'", inst->len, inst->ptr);
+	inst.func(node);
 }
 
 bool resolve_instruction(Node_Instruction* inst, Instruction* out_inst)
@@ -118,11 +143,69 @@ bool resolve_instruction(Node_Instruction* inst, Instruction* out_inst)
 		if (inst_list[i].name == NULL)
 			break;
 
+		// Name matches
 		if (strnicmp(inst->ptr, inst_list[i].name, inst->len) == 0)
 		{
+			// Compare arguments
+			Node* arg = inst->args;
+			u32 index = 0;
+			while(arg || inst_list[i].args[index])
+			{
+				// Too few arguments
+				if (!arg)
+					goto arg_match_fail;
+
+				// Too many arguments
+				if (!inst_list[i].args[index])
+					goto arg_match_fail;
+
+				u32 arg_type;
+				if (!resolve_argument(arg, &arg_type))
+				{
+					error_at(arg->ptr, arg->len, "Unable to parse argument type");
+					return false;
+				}
+
+				// Argument type mismatch
+				if (inst_list[i].args[index] != arg_type)
+					goto arg_match_fail;
+
+				arg = arg->next;
+				index++;
+			}
+
 			*out_inst = inst_list[i];
 			return true;
 		}
+
+arg_match_fail:;
+	}
+
+	return false;
+}
+
+bool resolve_argument(Node* node, u32* out_arg)
+{
+	Symbol sym;
+	Register reg;
+	Constant cnst;
+
+	switch(node->type)
+	{
+		case NODE_KEYWORD:
+			if (resolve_register(node, &reg))
+			{
+				*out_arg = ARG_REG;
+				return true;
+			}
+			break;
+
+		case NODE_CONST:
+			if (resolve_constant(node, &cnst))
+			{
+				*out_arg = ARG_CONST;
+				return true;
+			}
 	}
 
 	return false;
@@ -191,12 +274,15 @@ bool resolve_symbol_ref(Node* node, Symbol_Reference* out_ref)
 	return true;
 }
 
-void defer_symbol_ref(Symbol_Reference ref)
+void write_symbol_ref(Symbol_Reference ref)
 {
 	if (num_symbol_refs == MAX_SYMBOL_REF)
 		error("Too many symbol references");
 
+	ref.replace_addr = out_offset();
 	symbol_refs[num_symbol_refs++] = ref;
+
+	out_write_u16(0);
 }
 
 void compile_symbol_ref(Symbol_Reference ref)

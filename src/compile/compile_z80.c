@@ -23,16 +23,86 @@ void compile_mov_reg_c(Register dst, Node* dst_node, Constant src, Node* src_nod
 	out_write_u8(src.value);
 }
 
-void compile_mov_reg_reg(Register dst, Node* dst_node, Register src, Node* src_node)
+void compile_mov_reg_reg(Node_Instruction* inst)
 {
-	log_writel(LOG_TRIVIAL, "MOV %s %s", dst.name, src.name);
+	Register dst, src;
+	resolve_register(inst->args, &dst);
+	resolve_register(inst->args->next, &src);
+
 	out_write_bits(0b01, 2);
 	out_write_bits(dst.code, 3);
 	out_write_bits(src.code, 3);
 }
 
+void compile_mov_reg_cmem(Register dst, Node* dst_node, Constant src, Node* src_node)
+{
+	if (src.size > 2)
+		warning_at(src_node->ptr, src_node->len, "Move memory constant bigger than 2 bytes; will be truncated");
+
+	out_write_bits(0b00, 2);
+	out_write_bits(dst.code, 3);
+	out_write_bits(0b010, 3);
+
+	out_write_u16(src.value);
+}
+
+void compile_mov_reg_smem(Register dst, Node* dst_node, Symbol_Reference sym, Node* sym_node)
+{
+	out_write_bits(0b00, 2);
+	out_write_bits(dst.code, 3);
+	out_write_bits(0b010, 3);
+
+	write_symbol_ref(sym);
+}
+
+/*
+void compile_mov_cmem_reg(Constant dst, Node* dst_node, Register src, Node* src_node)
+{
+	if (dst.size > 2)
+		warning_at(dst_node->ptr, dst_node->len, "Move memory constant bigger than 2 bytes; will be truncated");
+
+	out_write_bits(0b00, 2);
+	out_write_bits(dst.code, 3);
+	out_write_bits(0b010, 3);
+
+	out_write_u16(src.value);
+}
+
+void compile_mov_smem_reg(Symbol_Reference dst, Node* dst_node, Register sym, Node* sym_node)
+{
+	out_write_bits(0b00, 2);
+	out_write_bits(dst.code, 3);
+	out_write_bits(0b010, 3);
+
+	write_symbol_ref(sym);
+}
+
+void compile_mov_cmem_c(Constant dst, Node* dst_node, Constant src, Node* src_node)
+{
+	if (dst.size > 2)
+		warning_at(dst_node->ptr, dst_node->len, "Move memory constant bigger than 2 bytes; will be truncated");
+
+	log_writel(LOG_TRIVIAL, "MOV %s [0x%04X]", dst.name, src.value);
+	out_write_bits(0b00, 2);
+	out_write_bits(dst.code, 3);
+	out_write_bits(0b010, 3);
+
+	out_write_u16(src.value);
+}
+
+void compile_mov_smem_c(Symbol_Reference dst, Node* dst_node, Constant sym, Node* sym_node)
+{
+	out_write_bits(0b00, 2);
+	out_write_bits(dst.code, 3);
+	out_write_bits(0b010, 3);
+
+	write_symbol_ref(sym);
+}
+*/
+
 void compile_mov(Node_Instruction* inst)
 {
+	/*
 	if (inst->num_args != 2) 
 	{
 		error_at(inst->ptr, inst->len, "Invalid argument count; expected 2, found %d", inst->num_args);
@@ -67,9 +137,52 @@ void compile_mov(Node_Instruction* inst)
 			compile_mov_reg_c(dst_r, dst, src_c, src);
 			return;
 		}
+
+		// r < [?]
+		if (src->type == NODE_MEM)
+		{
+			// Memory move only available for 'a'
+			if (dst_r.code != 0b111)
+			{
+				error_at(src->ptr, src->len, "Memory mov only available for register 'a'");
+				return;
+			}
+
+			Node_Memory* src_mem = (Node_Memory*)src;
+			src = src_mem->expr;
+			switch(src->type)
+			{
+				// r < [nn]
+				case NODE_CONST:
+					Constant src_c;
+					resolve_constant(src, &src_c);
+
+					compile_mov_reg_cmem(dst_r, dst, src_c, src);
+					return;
+
+				// r < [symbol]
+				case NODE_KEYWORD:
+					Symbol_Reference src_s;
+					if (!resolve_symbol_ref(src, &src_s))
+					{
+						error_at(src->ptr, src->len, "Unresolved symbol '%.*s'", src->len, src->ptr);
+						return;
+					}
+
+					compile_mov_reg_smem(dst_r, dst, src_s, src);
+					return;
+			}
+		}
+	}
+
+	// [?] < ?
+	if (dst->type == NODE_MEM)
+	{
+
 	}
 
 	error_at(inst->ptr, inst->len, "Invalid mov arguments");
+	*/
 }
 
 /* JMP */
@@ -87,10 +200,7 @@ void compile_jmp_symbol(Symbol_Reference sym, Node* sym_node)
 {
 	log_writel(LOG_TRIVIAL, "JMP '%.*s'", sym.symbol->node->len, sym.symbol->node->ptr);
 	out_write_u8(0xC3);
-
-	sym.replace_addr = out_offset();
-	defer_symbol_ref(sym);
-	out_write_u16(0x00);
+	write_symbol_ref(sym);
 }
 
 void compile_jmp(Node_Instruction* inst)
@@ -129,7 +239,7 @@ void compile_jmp(Node_Instruction* inst)
 
 Instruction inst_list[MAX_INST] =
 {
-	{ "mov", compile_mov },
-	{ "jmp", compile_jmp },
-	{ NULL, NULL }
+	{ "mov", { ARG_REG, ARG_REG, 0 }, compile_mov_reg_reg },
+	//{ "jmp", { ARG_CONST, 0 }, compile_jmp_c },
+	{ NULL, { 0 }, NULL }
 };
