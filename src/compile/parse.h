@@ -9,6 +9,8 @@ enum
 	TOKEN_CONST_BIN,
 };
 
+#define MAX_ARGS 0x5
+
 #define WHITESPACE(ptr) ((*(ptr)) == ' ' || (*(ptr)) == '\t')
 #define NEWLINE(ptr) ((*(ptr)) == '\n' || (*(ptr)) == '\r')
 #define ALPHA(ptr) (((*(ptr)) >= 'a' && (*(ptr)) <= 'z') || ((*(ptr)) >= 'A' && (*(ptr)) <= 'Z') || (*(ptr)) == '_' || (*(ptr)) == '-')
@@ -68,7 +70,7 @@ typedef struct
 	NODE_IMPL();
 
 	u32 num_args;
-	Node* args;
+	Node* args[];
 } Node_Instruction;
 
 Node_Instruction* parse_instruction(Token token);

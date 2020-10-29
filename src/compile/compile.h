@@ -1,7 +1,6 @@
 #pragma once
 #define MAX_REG 0x100
 #define MAX_INST 0x100
-#define MAX_ARGS 0x5
 
 #define MAX_SYMBOL 1024
 #define MAX_SYMBOL_REF 1024
