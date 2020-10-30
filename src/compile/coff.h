@@ -1,4 +1,5 @@
 #pragma once
+#pragma pack(push, 2)
 
 enum
 {
@@ -14,6 +15,21 @@ enum
 	SCT_EXEC_CODE = 0x20000000,
 	SCT_READ = 0x40000000,
 	SCT_WRITE = 0x80000000,
+};
+
+enum
+{
+	SYMTYPE_NULL = 0x0,
+	SYMTYPE_PTR = 0x1,
+	SYMTYPE_FUNC = 0x2,
+	SYMTYPE_ARRAY = 0x3,
+};
+
+enum
+{
+	SYMCLS_NULL = 0x0,
+	SYMCLS_EXTERNAL = 0x2,
+	SYMCLS_STATIC = 0x3,
 };
 
 typedef struct
@@ -45,6 +61,21 @@ typedef struct
 	u16 linenmbr_num;
 
 	u32 flags;
-} Coff_Section_Header;
+} Coff_Section;
+
+typedef struct
+{
+	char shrtname[8];
+
+	u32 ptr;
+	u16 section;
+
+	u16 type;
+	u8 storage_cls;
+
+	u8 auxsymbol_num;
+} Coff_Symbol;
 
 void coff_write(const char* path);
+
+#pragma pack(pop)

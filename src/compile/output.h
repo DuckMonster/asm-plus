@@ -15,3 +15,7 @@ void out_write_u8(u8 val);
 void out_write_i8(i8 val);
 void out_write_u16(u16 val);
 void out_write_i16(i16 val);
+void out_write_u32(u32 val);
+void out_write_i32(i32 val);
+void out_write_u64(u64 val);
+void out_write_i64(i64 val);
