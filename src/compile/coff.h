@@ -19,10 +19,15 @@ enum
 
 enum
 {
-	SYMTYPE_NULL = 0x0,
-	SYMTYPE_PTR = 0x1,
-	SYMTYPE_FUNC = 0x2,
-	SYMTYPE_ARRAY = 0x3,
+	RELOC_REL32 = 0x04,
+};
+
+enum
+{
+	SYMTYPE_NULL = 0x0000,
+	SYMTYPE_PTR = 0x0100,
+	SYMTYPE_FUNC = 0x0200,
+	SYMTYPE_ARRAY = 0x0300,
 };
 
 enum
@@ -65,7 +70,22 @@ typedef struct
 
 typedef struct
 {
-	char shrtname[8];
+	u32 addr;
+	u32 sym_index;
+	u16 type;
+} Coff_Relocation;
+
+typedef struct
+{
+	union
+	{
+		char shrtname[8];
+		struct
+		{
+			u32 zeroes;
+			u32 offset;
+		} longname;
+	};
 
 	u32 ptr;
 	u16 section;
