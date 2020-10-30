@@ -70,7 +70,7 @@ typedef struct
 	NODE_IMPL();
 
 	u32 num_args;
-	Node* args[];
+	Node* args;
 } Node_Instruction;
 
 Node_Instruction* parse_instruction(Token token);

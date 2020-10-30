@@ -3,9 +3,13 @@
 #include "compile.h"
 #include "log.h"
 #include "output.h"
+#include "coff.h"
 
 int main(int argc, const char** argv)
 {
+	coff_write(argv[2]);
+	return;
+
 	timer_push();
 
 	Node* node = parse_file(argv[1]);

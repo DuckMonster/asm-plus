@@ -26,8 +26,8 @@ void compile_mov_reg_c(Register dst, Node* dst_node, Constant src, Node* src_nod
 void compile_mov_reg_reg(Node_Instruction* inst)
 {
 	Register dst, src;
-	resolve_register(inst->args[0], &dst);
-	resolve_register(inst->args[1], &src);
+	resolve_register(inst->args, &dst);
+	resolve_register(inst->args->next, &src);
 
 	out_write_bits(0b01, 2);
 	out_write_bits(dst.code, 3);

@@ -57,6 +57,7 @@ void grow_buffer(u64 target_cap)
 	if (buffer != NULL)
 	{
 		memcpy(new_buffer, buffer, file_size);
+		memzero(new_buffer + file_size, buffer_capacity - file_size);
 		free(buffer);
 	}
 
