@@ -5,8 +5,45 @@
 #include "output.h"
 #include "coff.h"
 
+ARRAY_DEF(Int_Array, int);
+ARRAY_DEF(Str_Array, const char*);
+
 int main(int argc, const char** argv)
 {
+	{
+		Int_Array arr;
+		memzero(&arr, sizeof(arr));
+
+		array_add(arr, 5);
+		array_add(arr, 2);
+		array_add(arr, 1);
+		array_add(arr, 9);
+
+/*
+		array_foreach(arr)
+		{
+			printf("%d\n", *it);
+		}
+		*/
+	}
+
+	{
+		Str_Array arr;
+		memzero(&arr, sizeof(arr));
+
+		array_add(arr, "Hello!");
+		array_add(arr, "World!");
+		array_add(arr, "FUCK YOU");
+
+/*
+		array_foreach(arr)
+		{
+			printf("'%s'\n", *it);
+		}
+*/
+	}
+	return;
+
 	coff_write(argv[2]);
 	return;
 
