@@ -42,6 +42,7 @@ void error(const char* msg, ...)
 	va_end(vl);
 
 	printf("\n");
+	system("pause");
 	exit(1);
 }
 

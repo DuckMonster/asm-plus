@@ -11,6 +11,9 @@ static u64 file_size;
 static u8 bit_buffer;
 static u8 bit_offset;
 
+u64 seek_stack[32];
+u32 seek_stack_idx = 0;
+
 void out_begin()
 {
 	buffer = NULL;
@@ -80,7 +83,26 @@ void out_seek_end()
 	buffer_offset = file_size;
 }
 
-void out_write(void* ptr, u32 size)
+void out_seek_push(u64 offset)
+{
+	seek_stack[seek_stack_idx++] = buffer_offset;
+	buffer_offset = offset;
+
+	grow_buffer(offset);
+}
+
+u64 out_seek_pop()
+{
+	if (seek_stack_idx == 0)
+		error("Seek stack underflow");
+
+	u64 cur_offset = buffer_offset;
+	buffer_offset = seek_stack[--seek_stack_idx];
+
+	return cur_offset;
+}
+
+void out_write(const void* ptr, u32 size)
 {
 	grow_buffer(buffer_offset + size);
 	memcpy(buffer + buffer_offset, ptr, size);
@@ -114,3 +136,4 @@ void out_write_u32(u32 val) { out_write_t(val); }
 void out_write_i32(i32 val) { out_write_t(val); }
 void out_write_u64(u64 val) { out_write_t(val); }
 void out_write_i64(i64 val) { out_write_t(val); }
+void out_write_str(const char* str) { out_write(str, (u32)strlen(str) + 1); }

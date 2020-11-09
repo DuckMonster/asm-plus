@@ -7,76 +7,45 @@
 
 #include "parse.h"
 
-void compile_node_tree(Node* base, const char* target_path);
-void compile_raw(Node_Raw* raw);
-
-// Argument types
 enum
 {
-	ARG_NULL,
-	ARG_REG,
-	ARG_CONST,
-	ARG_CMEM,
-	ARG_SMEM,
+	SYM_LOCAL,
+	SYM_EXPORT,
+	SYM_IMPORT,
 };
 
-// Registers
 typedef struct
 {
 	const char* name;
-	u8 code;
-	u8 size;
-} Register;
-extern Register reg_list[MAX_REG];
-bool resolve_register(Node* node, Register* out_reg);
+	u32 name_len;
+	u32 ptr;
 
-// Instructions
-typedef void (*Inst_Func)(Node_Instruction* inst);
-
-typedef struct 
-{
-	const char* name;
-	u32 args[MAX_ARGS];
-
-	Inst_Func func;
-} Instruction;
-extern Instruction inst_list[MAX_INST];
-
-void compile_instruction(Node_Instruction* inst);
-bool resolve_instruction(Node_Instruction* node, Instruction* out_inst);
-bool resolve_argument(Node* node, u32* out_arg);
-
-// Symbols
-typedef struct
-{
-	Node* node;
-
-	bool compiled;
-	u64 addr;
+	u8 type;
 } Symbol;
+ARRAY_DEF(Symbol_Array, Symbol);
 
-void preprocess_label(Node* lbl);
-void compile_label(Node* lbl);
-bool resolve_symbol(const char* name, u32 name_len, Symbol** out_symbol);
-
-// Symbol reference
 typedef struct
 {
-	Symbol* symbol;
-	u32 offset;
+	u32 sym_index;
+	u32 ptr;
+	u32 size;
+} Relocation;
+ARRAY_DEF(Relocation_Array, Relocation);
 
-	u64 replace_addr;
-} Symbol_Reference;
-
-bool resolve_symbol_ref(Node* node, Symbol_Reference* out_ref);
-void write_symbol_ref(Symbol_Reference ref);
-void compile_symbol_ref(Symbol_Reference ref);
-
-// Constants
-typedef struct 
+typedef struct
 {
-	u64 value;
-	u8 size;
-} Constant;
+	const char* name;
+	u8* data;
+	u32 data_size;
 
-bool resolve_constant(Node* node, Constant* out_const);
+	Symbol_Array symbols;
+	Relocation_Array relocations;
+} Section;
+ARRAY_DEF(Section_Array, Section);
+
+typedef struct
+{
+	Section_Array sections;
+} Compile_Manifest;
+
+void compile_file(const char* path, Compile_Manifest* out_manifest);

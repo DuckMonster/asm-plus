@@ -7,7 +7,7 @@ typedef struct
 	u32 capacity;
 } Array;
 
-#define ARRAY_DEF(name, type) typedef struct { type* data; u32 count; u32 capacity; } name;
+#define ARRAY_DEF(name, type) typedef struct name ## _C { type* data; u32 count; u32 capacity; } name;
 
 void _array_reserve(Array* arr, u32 size, u32 new_cap);
 void _array_add(Array* arr, u32 size);

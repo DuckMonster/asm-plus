@@ -1,5 +1,9 @@
 #pragma once
+#include "compile.h"
+
 #pragma pack(push, 2)
+
+ARRAY_DEF(Str_Array, const char*);
 
 enum
 {
@@ -96,6 +100,6 @@ typedef struct
 	u8 auxsymbol_num;
 } Coff_Symbol;
 
-void coff_write(const char* path);
+void coff_write(const char* path, Compile_Manifest* compile);
 
 #pragma pack(pop)

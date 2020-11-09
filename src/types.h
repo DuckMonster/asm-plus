@@ -14,4 +14,5 @@ typedef unsigned char bool;
 enum { false, true };
 
 #include <string.h>
-#define memzero(ptr, size) memset(ptr, 0, size)
+#define memzero(ptr, size) (memset(ptr, 0, size))
+#define memzero_t(var) (memzero(&var, sizeof(var)))
