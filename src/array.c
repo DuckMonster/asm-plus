@@ -9,6 +9,7 @@ void _array_reserve(Array* arr, u32 size, u32 new_cap)
 	void* old_ptr = arr->data;
 	arr->data = malloc(size * new_cap);
 	arr->capacity = new_cap;
+	memzero(arr->data, size * new_cap);
 
 	if (old_ptr)
 	{

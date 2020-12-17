@@ -23,7 +23,7 @@ void out_begin()
 	bit_offset = 0;
 }
 
-void out_flush(const char* path)
+void out_flush_file(const char* path)
 {
 	timer_push();
 	FILE* file = fopen(path, "wb");
@@ -40,12 +40,23 @@ void out_flush(const char* path)
 	log_writel(LOG_MEDIUM, "Wrote file '%s', %d bytes (%.2f ms)", path, file_size, timer_pop_ms());
 }
 
+void out_flush_mem(void** ptr)
+{
+	*ptr = malloc(file_size);
+	memcpy(*ptr, buffer, file_size);
+}
+
 void out_end()
 {
 	if (buffer)
 		free(buffer);
 
 	buffer = NULL;
+}
+
+char* out_ptr()
+{
+	return buffer + buffer_offset;
 }
 
 void grow_buffer(u64 target_cap)
@@ -56,15 +67,12 @@ void grow_buffer(u64 target_cap)
 	u64 po2 = (u32)log2((double)target_cap) + 1;
 	buffer_capacity = (u64)1 << po2;
 
-	char* new_buffer = malloc(buffer_capacity);
-	if (buffer != NULL)
-	{
-		memcpy(new_buffer, buffer, file_size);
-		memzero(new_buffer + file_size, buffer_capacity - file_size);
-		free(buffer);
-	}
+	if (buffer)
+		buffer = realloc(buffer, buffer_capacity);
+	else
+		buffer = malloc(buffer_capacity);
 
-	buffer = new_buffer;
+	memzero(buffer + file_size, buffer_capacity - file_size);
 }
 
 u64 out_offset()

@@ -1,5 +1,6 @@
 #include "coff.h"
 #include "output.h"
+#include "log.h"
 #include <stdio.h>
 
 typedef struct
@@ -43,9 +44,20 @@ u32 get_or_add_string(String_List* list, const char* str, u32 len)
 	return new_offset;
 }
 
-
-void coff_write(const char* path, Compile_Manifest* compile)
+u32 ceil_4bit(u32 value)
 {
+	// Laying on 4bit boundary
+	if ((value & 0xF) == 0)
+		return value;
+
+	return ((value >> 4) << 4) + 0x10;
+}
+
+void coff_write(const char* path, Compile* compile)
+{
+	timer_push();
+	log_writel(LOG_MEDIUM, " Writing COFF");
+
 	out_begin();
 
 	// Header
@@ -54,108 +66,106 @@ void coff_write(const char* path, Compile_Manifest* compile)
 
 	hdr.machine = MACHINE_AMD64;
 	hdr.section_num = compile->sections.count;
-	hdr.symbol_ptr = 0x90;
-	hdr.symbol_num = 0;
 
 	out_write_t(hdr);
 
 	String_List str_list;
 	memzero_t(str_list);
 
-	u32 symbol_num = 0;
-	u64 symbol_ptr = 0x90;
-
-	// Write each section
+	// Write section headers
 	for(u32 section_idx = 0; section_idx < compile->sections.count; ++section_idx)
 	{
 		Section section = compile->sections.data[section_idx];
 		Coff_Section c_section;
 		memzero_t(c_section);
 
-		strcpy(c_section.name, section.name);
+		memcpy(c_section.name, section.token.ptr, section.token.len);
 		c_section.size = section.data_size;
-		c_section.data_ptr = 0x60;
 		c_section.flags = SCT_EXEC_CODE;
 		c_section.reloc_num = section.relocations.count;
-		c_section.reloc_ptr = 0x80;
 
 		out_write_t(c_section);
-
-		// Write code
-		out_seek_push(0x60);
-		out_write(section.data, section.data_size);
-		out_seek_pop();
-
-		// Write redirects
-		out_seek_push(0x80);
-		for(u32 relocate_idx = 0; relocate_idx < section.relocations.count; ++relocate_idx)
-		{
-			Relocation relocation = section.relocations.data[relocate_idx];
-			Coff_Relocation c_relocation;
-			memzero_t(c_relocation);
-
-			c_relocation.addr = relocation.ptr;
-			c_relocation.sym_index = relocation.sym_index;
-			c_relocation.type = RELOC_REL32;
-			out_write_t(c_relocation);
-		}
-		out_seek_pop();
-
-		// Write section symbols
-		out_seek_push(symbol_ptr);
-
-		for(u32 symbol_idx = 0; symbol_idx < section.symbols.count; ++symbol_idx)
-		{
-			Symbol symbol = section.symbols.data[symbol_idx];
-			Coff_Symbol c_symbol;
-			memzero_t(c_symbol);
-
-			// Shortname representation
-			if (symbol.name_len <= 8)
-			{
-				memcpy(c_symbol.shrtname, symbol.name, symbol.name_len);
-			}
-			// Otherwise, add/get name from the stringtable
-			else
-			{
-				u32 offset = get_or_add_string(&str_list, symbol.name, symbol.name_len);
-				c_symbol.longname.zeroes = 0;
-				c_symbol.longname.offset = offset + 4; // +4 of string-table size 
-			}
-
-			c_symbol.type = SYMTYPE_FUNC;
-			if (symbol.type == SYM_IMPORT)
-			{
-				c_symbol.section = 0;
-				c_symbol.ptr = 0;
-			}
-			else
-			{
-				c_symbol.section = section_idx + 1;
-				c_symbol.ptr = symbol.ptr;
-			}
-
-			if (symbol.type == SYM_LOCAL)
-				c_symbol.storage_cls = SYMCLS_STATIC;
-			else
-				c_symbol.storage_cls = SYMCLS_EXTERNAL;
-
-			out_write_t(c_symbol);
-			symbol_num++;
-		}
-
-		symbol_ptr = out_seek_pop();
+		log_writel(LOG_DEV, "SECTION '%s'", c_section.name);
+		log_writel(LOG_DEV, "\tSize:  %d", c_section.size);
+		log_writel(LOG_DEV, "\tFlags: %x", c_section.flags);
 	}
 
-	// Update num symbols
+	u32 end_ptr = ceil_4bit(out_offset());
+
+	// Write section contents
+	out_seek(sizeof(Coff_Header));
+	for(u32 section_idx = 0; section_idx < compile->sections.count; ++section_idx)
+	{
+		Section section = compile->sections.data[section_idx];
+		Coff_Section c_section = *(Coff_Section*)out_ptr();
+		c_section.data_ptr = end_ptr;
+
+		// Write data
+		out_seek_push(end_ptr);
+		out_write(section.data, section.data_size);
+
+		// Write relocations
+		out_seek(ceil_4bit(out_offset()));
+		c_section.reloc_ptr = out_offset();
+
+		for(u32 reloc_idx = 0; reloc_idx < section.relocations.count; ++reloc_idx)
+		{
+			Relocation reloc = section.relocations.data[reloc_idx];
+			Coff_Relocation c_reloc;
+			c_reloc.addr = reloc.ptr;
+			c_reloc.sym_index = reloc.sym_index;
+			switch(reloc.type)
+			{
+				case RELOC_MEM: c_reloc.type = RELOC_ABS64; break;
+				case RELOC_FUNC: c_reloc.type = RELOC_REL32; break;
+			}
+
+			out_write_t(c_reloc);
+		}
+
+		end_ptr = ceil_4bit(out_seek_pop());
+
+		out_write_t(c_section);
+	}
+
+	// Update symbol data in file header
 	out_seek(0);
-	hdr.symbol_num = symbol_num;
+	hdr.symbol_num = compile->symbols.count;
+	hdr.symbol_ptr = end_ptr;
 	out_write_t(hdr);
 
+	out_seek(end_ptr);
+
+	// Write all symbols
+	for(u32 sym_idx = 0; sym_idx < compile->symbols.count; ++sym_idx)
+	{
+		Symbol symbol = compile->symbols.data[sym_idx];
+
+		Coff_Symbol c_symbol;
+		memzero_t(c_symbol);
+
+		if (symbol.token.len > 8)
+			c_symbol.longname.offset = get_or_add_string(&str_list, symbol.token.ptr, symbol.token.len) + 4;
+		else
+			memcpy(c_symbol.shrtname, symbol.token.ptr, symbol.token.len);
+
+		c_symbol.ptr = symbol.ptr;
+		if (symbol.type == SYM_IMPORT)
+			c_symbol.section = 0;
+		else
+			c_symbol.section = symbol.section + 1; // Symbol-index are 1-based
+
+		c_symbol.type = SYMTYPE_FUNC;
+		c_symbol.storage_cls = SYMCLS_EXTERNAL;
+
+		out_write_t(c_symbol);
+	}
+
 	// Write string table
-	out_seek_end();
 	out_write_u32(str_list.size + 4);
 	out_write(str_list.data, str_list.size);
 
-	out_flush(path);
+	log_writel(LOG_MEDIUM, " COFF complete (%.2f ms)\n", timer_pop_ms());
+
+	out_flush_file(path);
 }

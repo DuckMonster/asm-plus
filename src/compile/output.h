@@ -1,8 +1,10 @@
 #pragma once
 
 void out_begin();
-void out_flush(const char* path);
+void out_flush_file(const char* path);
+void out_flush_mem(void** ptr);
 void out_end();
+char* out_ptr();
 
 u64 out_offset();
 void out_seek(u64 offset);

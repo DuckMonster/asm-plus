@@ -23,6 +23,7 @@ enum
 
 enum
 {
+	RELOC_ABS64 = 0x01,
 	RELOC_REL32 = 0x04,
 };
 
@@ -100,6 +101,6 @@ typedef struct
 	u8 auxsymbol_num;
 } Coff_Symbol;
 
-void coff_write(const char* path, Compile_Manifest* compile);
+void coff_write(const char* path, Compile* compile);
 
 #pragma pack(pop)

@@ -1,8 +1,10 @@
 #pragma once
+#include "token.h"
 typedef struct Node_T Node;
 
 enum
 {
+	LOG_DEV,
 	LOG_TRIVIAL,
 	LOG_MEDIUM,
 	LOG_IMPORTANT,
@@ -15,6 +17,6 @@ extern u32 warning_count;
 void log_write(u32 level, const char* msg, ...);
 void log_writel(u32 level, const char* msg, ...);
 void error(const char* msg, ...);
-void error_at(const char* ptr, u32 len, const char* msg, ...);
+void error_at(Token token, const char* msg, ...);
 
-void warning_at(const char* ptr, u32 len, const char* msg, ...);
+void warning_at(Token token, const char* msg, ...);

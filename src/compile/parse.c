@@ -4,8 +4,6 @@
 #include "input.h"
 #include "log.h"
 
-Node parse_base = { 0 };
-
 bool adv_line()
 {
 	// Advance until _at least_ the newline
@@ -131,8 +129,7 @@ Node* node_make(u32 size, Token token)
 	Node* node = (Node*)malloc(size);
 	memzero(node, size);
 
-	node->ptr = token.ptr;
-	node->len = token.len;
+	node->token = token;
 	return node;
 }
 
@@ -148,12 +145,13 @@ void node_push(Node* base, Node* node)
 	}
 }
 
-Node* parse_file(const char* file)
+void parse_file(const char* file, Parse* p)
 {
+	memzero_t(*p);
 	in_load(file);
 
 	timer_push();
-	log_writel(LOG_MEDIUM, "Parsing '%s'", file);
+	log_writel(LOG_MEDIUM, " Parsing '%s'", file);
 
 	// Iterate through all lines in this file
 	do
@@ -162,10 +160,11 @@ Node* parse_file(const char* file)
 		Token token;
 		while(token_read(&token))
 		{
+			// Raw data
 			if (token.type == '#')
 			{
 				Node_Raw* raw = parse_raw(token);
-				node_push(&parse_base, (Node*)raw);
+				node_push(&p->root, (Node*)raw);
 				adv_line();
 				continue;
 			}
@@ -178,11 +177,11 @@ Node* parse_file(const char* file)
 				{
 					case ':':
 						Node* lbl = parse_label(token);
-						node_push(&parse_base, lbl);
+						node_push(&p->root, lbl);
 						break;
 
 					default:
-						error_at(symbol.ptr, symbol.len, "Unexpected token");
+						error_at(symbol, "Unexpected token");
 						adv_line();
 						break;
 				}
@@ -190,14 +189,13 @@ Node* parse_file(const char* file)
 			else
 			{
 				Node_Instruction* inst = parse_instruction(token);
-				node_push(&parse_base, (Node*)inst);
+				node_push(&p->root, (Node*)inst);
 				adv_line();
 			}
 		}
 	} while(adv_line());
 
-	log_writel(LOG_MEDIUM, "Parse complete (%.2f ms)\n", timer_pop_ms());
-	return &parse_base;
+	log_writel(LOG_MEDIUM, " Parse complete (%.2f ms)\n", timer_pop_ms());
 }
 
 Node* parse_expression(Token token)
@@ -227,7 +225,7 @@ Node* parse_expression(Token token)
 
 Node* parse_label(Token token)
 {
-	log_writel(LOG_TRIVIAL, "LABL '%.*s'", token.len, token.ptr);
+	log_writel(LOG_DEV, "LABL '%.*s'", token.len, token.ptr);
 	Node* label = node_make_t(Node, token);
 	label->type = NODE_LABEL;
 
@@ -237,7 +235,7 @@ Node* parse_label(Token token)
 /* INSTRUCTION */
 Node_Instruction* parse_instruction(Token token)
 {
-	log_write(LOG_TRIVIAL, "INST '%.*s'", token.len, token.ptr);
+	log_write(LOG_DEV, "INST '%.*s'", token.len, token.ptr);
 
 	Node_Instruction* inst = node_make_t(Node_Instruction, token);
 	inst->type = NODE_INST;
@@ -249,7 +247,7 @@ Node_Instruction* parse_instruction(Token token)
 		Node* arg_node = parse_expression(arg_token);
 		if (arg_node == NULL)
 		{
-			error_at(arg_token.ptr, arg_token.len, "Unexpected token, expected instruction argument");
+			//error_at(arg_token.ptr, arg_token.len, "Unexpected token, expected instruction argument");
 			break;
 		}
 
@@ -259,20 +257,20 @@ Node_Instruction* parse_instruction(Token token)
 			inst->args = arg_node; 
 		inst->num_args++;
 
-		log_write(LOG_TRIVIAL, " '%.*s'", arg_node->len, arg_node->ptr);
+		log_write(LOG_DEV, " '%.*s'", arg_node->token.len, arg_node->token.ptr);
 
 		Token separator;
 		if (token_read(&separator))
 		{
 			if (separator.type != ',')
 			{
-				error_at(separator.ptr, separator.len, "Unexpected token, expected ','");
+				//error_at(separator.ptr, separator.len, "Unexpected token, expected ','");
 				break;
 			}
 		}
 	}
 
-	log_writel(LOG_TRIVIAL, "");
+	log_writel(LOG_DEV, "");
 	return inst;
 }
 
@@ -295,7 +293,7 @@ Node_Const* parse_const(Token token)
 			break;
 
 		case TOKEN_CONST_BIN:
-			error_at(token.ptr, token.len, "Sorry! Binary constants not implemented yet :(");
+			//error_at(token.ptr, token.len, "Sorry! Binary constants not implemented yet :(");
 			break;
 	}
 
@@ -308,7 +306,7 @@ Node_Memory* parse_memory(Token token)
 	Token expr_token;
 	if (!token_read(&expr_token))
 	{
-		error_at(expr_token.ptr, expr_token.len, "Expected memory expression");
+		//error_at(expr_token.ptr, expr_token.len, "Expected memory expression");
 		return NULL;
 	}
 
@@ -319,7 +317,7 @@ Node_Memory* parse_memory(Token token)
 	// No expression parsed
 	if (mem->expr == NULL)
 	{
-		error_at(expr_token.ptr, expr_token.len, "Unexpected token, expected memory expression");
+		//error_at(expr_token.ptr, expr_token.len, "Unexpected token, expected memory expression");
 		return NULL;
 	}
 
@@ -327,11 +325,11 @@ Node_Memory* parse_memory(Token token)
 	token_read(&expr_token);
 	if (expr_token.type != ']')
 	{
-		error_at(token.ptr, token.len, "Bracket mismatch, expected ']'");
+		//error_at(token.ptr, token.len, "Bracket mismatch, expected ']'");
 		return NULL;
 	}
 
-	mem->len = (expr_token.ptr - mem->ptr) + 1;
+	mem->token.len = (expr_token.ptr - mem->token.ptr) + 1;
 	return mem;
 }
 
@@ -347,16 +345,11 @@ Node_Raw* parse_raw(Token token)
 		Node* expr = parse_expression(expr_token);
 		if (!expr)
 		{
-			error_at(expr_token.ptr, expr_token.len, "Unexpected token, expected raw data value");
+			error_at(expr_token, "Unexpected token, expected raw data value");
 			break;
 		}
 
-		if (raw->values)
-			node_push(raw->values, expr);
-		else
-			raw->values = expr;
-
-		raw->num_values++;
+		array_add(raw->values, expr);
 	}
 
 	return raw;

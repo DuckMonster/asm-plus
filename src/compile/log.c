@@ -6,7 +6,7 @@
 #include "input.h"
 #include "parse.h"
 
-u32 log_lvl = LOG_MEDIUM;
+u32 log_lvl = LOG_DEV;
 u32 error_count = 0;
 u32 warning_count = 0;
 
@@ -76,10 +76,10 @@ void print_code_preview(const char* ptr, u32 len)
 	printf("\n");
 }
 
-void error_at(const char* ptr, u32 len, const char* msg, ...)
+void error_at(Token token, const char* msg, ...)
 {
 	u32 line, col;
-	in_line_col_at(ptr, &line, &col);
+	in_line_col_at(token.ptr, &line, &col);
 
 	// Print error message
 	va_list vl;
@@ -89,16 +89,16 @@ void error_at(const char* ptr, u32 len, const char* msg, ...)
 	va_end(vl);
 
 	printf("\n");
-	print_code_preview(ptr, len);
+	print_code_preview(token.ptr, token.len);
 	printf("\n");
 
 	error_count++;
 }
 
-void warning_at(const char* ptr, u32 len, const char* msg, ...)
+void warning_at(Token token, const char* msg, ...)
 {
 	u32 line, col;
-	in_line_col_at(ptr, &line, &col);
+	in_line_col_at(token.ptr, &line, &col);
 
 	// Print warning message
 	va_list vl;
@@ -108,7 +108,7 @@ void warning_at(const char* ptr, u32 len, const char* msg, ...)
 	va_end(vl);
 
 	printf("\n");
-	print_code_preview(ptr, len);
+	print_code_preview(token.ptr, token.len);
 	printf("\n");
 
 	warning_count++;
