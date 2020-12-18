@@ -14,6 +14,8 @@ static u8 bit_offset;
 u64 seek_stack[32];
 u32 seek_stack_idx = 0;
 
+static u32 debug_offset;
+
 void out_begin()
 {
 	buffer = NULL;
@@ -145,3 +147,24 @@ void out_write_i32(i32 val) { out_write_t(val); }
 void out_write_u64(u64 val) { out_write_t(val); }
 void out_write_i64(i64 val) { out_write_t(val); }
 void out_write_str(const char* str) { out_write(str, (u32)strlen(str) + 1); }
+
+void out_debug_begin()
+{
+	debug_offset = buffer_offset;
+}
+
+void out_debug_end()
+{
+	const u8* ptr = &buffer[debug_offset];
+	u32 debug_size = buffer_offset - debug_offset;
+
+	// Devlog
+	for(u32 i=0; i<debug_size; ++i)
+	{
+		log_write(LOG_DEV, " %02X", ptr[i]);
+		if (i % 16 == 15)
+			log_writel(LOG_DEV, "");
+	}
+
+	log_writel(LOG_DEV, "");
+}

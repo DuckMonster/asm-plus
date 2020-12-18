@@ -16,3 +16,9 @@ enum { false, true };
 #include <string.h>
 #define memzero(ptr, size) (memset(ptr, 0, size))
 #define memzero_t(var) (memzero(&var, sizeof(var)))
+
+inline char* str_add(char* tar, const char* src, u32 size)
+{
+	memcpy(tar, src, size);
+	return tar + size;
+}

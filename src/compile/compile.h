@@ -74,7 +74,6 @@ enum
 {
 	ARG_NULL,
 	ARG_REGISTER,
-	ARG_MEMORY,
 	ARG_CONST,
 };
 typedef void (*Instr_Func)(Node_Instruction* inst);
@@ -89,8 +88,12 @@ typedef struct
 extern Instruction instruction_list[MAX_INSTRUCTIONS];
 
 void compile_instruction(Compile* c, Node_Instruction* inst_node);
-bool resolve_instruction(Node_Instruction* inst_node, Instruction** out_inst);
+bool resolve_instruction(Node_Instruction* inst_node, Instruction* out_inst);
+bool check_instruction_args(Node_Instruction* inst_node);
 u8 get_arg_type(Node* arg_node);
+
+const char* instruction_to_str(Node_Instruction* inst);
+const char* arg_to_str(u8 arg_type);
 
 /* CONSTANT */
 typedef struct
@@ -98,6 +101,7 @@ typedef struct
 	u32 value;
 	u32 size;
 } Constant;
+
 bool resolve_constant(Node* node, Constant* cnst);
 
 /* REGISTER */
@@ -110,7 +114,7 @@ typedef struct
 } Register;
 extern Register register_list[MAX_REGISTERS];
 
-bool resolve_register(Node* node, Register** reg);
+bool resolve_register(Node* node, Register* out_reg);
 
 /* COMPILE */
 typedef struct Compile_T

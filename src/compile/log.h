@@ -16,6 +16,7 @@ extern u32 warning_count;
 
 void log_write(u32 level, const char* msg, ...);
 void log_writel(u32 level, const char* msg, ...);
+void log_codeline(u32 level, Token token);
 void error(const char* msg, ...);
 void error_at(Token token, const char* msg, ...);
 

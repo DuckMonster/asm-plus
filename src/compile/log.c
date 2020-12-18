@@ -34,6 +34,15 @@ void log_write(u32 level, const char* msg, ...)
 	va_end(vl);
 }
 
+void log_codeline(u32 level, Token token)
+{
+	i32 line = in_line_at(token.ptr);
+	const char* line_ptr = in_line_start(token.ptr);
+	i32 line_len = in_line_len(token.ptr);
+
+	printf("(%4d): %.*s\n", line, line_len, line_ptr);
+}
+
 void error(const char* msg, ...)
 {
 	va_list vl;

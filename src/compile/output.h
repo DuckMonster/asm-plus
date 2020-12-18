@@ -25,3 +25,6 @@ void out_write_i32(i32 val);
 void out_write_u64(u64 val);
 void out_write_i64(i64 val);
 void out_write_str(const char* str);
+
+void out_debug_begin();
+void out_debug_end();

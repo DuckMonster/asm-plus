@@ -10,7 +10,7 @@
 void compile_parsed(Parse* parse, Compile* c)
 {
 	timer_push();
-	log_writel(LOG_MEDIUM, " Compiling");
+	log_writel(LOG_MEDIUM, "== Compiling ==");
 
 	memzero(c, sizeof(Compile));
 
@@ -39,7 +39,7 @@ void compile_parsed(Parse* parse, Compile* c)
 	}
 
 	compile_end_section(c);
-	log_writel(LOG_MEDIUM, " Compile complete (%.2f ms)\n", timer_pop_ms());
+	log_writel(LOG_MEDIUM, "== Compile complete (%.2f ms) ==\n", timer_pop_ms());
 
 /*
 	Node* node = &parse->root;
@@ -253,6 +253,9 @@ void compile_mark_symbol(Compile* c, Token token)
 /* RAW */
 void compile_raw(Compile* c, Node_Raw* raw)
 {
+	log_codeline(LOG_DEV, raw->token);
+	out_debug_begin();
+
 	for(u32 i=0; i<raw->values.count; ++i)
 	{
 		Node* val = raw->values.data[i];
@@ -264,24 +267,30 @@ void compile_raw(Compile* c, Node_Raw* raw)
 			break;
 		}
 	}
+
+	out_debug_end();
 }
 
 /* INSTRUCTION */
 void compile_instruction(Compile* c, Node_Instruction* inst_node)
 {
-	log_writel(LOG_DEV, "Compiling instruction '%s'", token_to_str(inst_node->token));
+	log_codeline(LOG_DEV, inst_node->token);
+	if (!check_instruction_args(inst_node))
+		return;
 
-	Instruction* inst;
+	Instruction inst;
 	if (!resolve_instruction(inst_node, &inst))
 	{
 		error_at(inst_node->token, "Unknown instruction '%s'", token_to_str(inst_node->token));
 		return;
 	}
 
-	inst->func(inst_node);
+	out_debug_begin();
+	inst.func(inst_node);
+	out_debug_end();
 }
 
-bool resolve_instruction(Node_Instruction* inst_node, Instruction** out_inst)
+bool resolve_instruction(Node_Instruction* inst_node, Instruction* out_inst)
 {
 	// Compare name, and arguments
 	for(u32 inst_idx = 0; inst_idx < MAX_INSTRUCTIONS; ++inst_idx)
@@ -293,21 +302,18 @@ bool resolve_instruction(Node_Instruction* inst_node, Instruction** out_inst)
 			break;
 
 		// Num arguments
-		if (inst_node->num_args != inst->num_args)
+		if (inst_node->args.count != inst->num_args)
 			continue;
 
 		// Compare argument types
-		Node* arg = inst_node->args;
 		for (u32 arg_idx = 0; arg_idx < inst->num_args; ++arg_idx)
 		{
-			if (get_arg_type(arg) != inst->args[arg_idx])
+			if (get_arg_type(inst_node->args.data[arg_idx]) != inst->args[arg_idx])
 				goto arg_mismatch;
-
-			arg = arg->next;
 		}
 
 		// .. oh, you're still here? Must mean youre the one!
-		*out_inst = inst;
+		*out_inst = *inst;
 		return true;
 
 arg_mismatch:
@@ -317,15 +323,73 @@ arg_mismatch:
 	return false;
 }
 
+bool check_instruction_args(Node_Instruction* inst_node)
+{
+	for(u32 i=0; i<inst_node->args.count; ++i)
+	{
+		Node* arg = inst_node->args.data[i];
+		if (get_arg_type(arg) == ARG_NULL)
+		{
+			error_at(arg->token, "Unknown arg type for argument '%s'", token_to_str(arg->token));
+			return false;
+		}
+	}
+
+	return true;
+}
+
 u8 get_arg_type(Node* arg_node)
 {
 	switch(arg_node->type)
 	{
-		case NODE_CONST: return ARG_CONST;
-		case NODE_KEYWORD: return ARG_REGISTER;
+		case NODE_CONST:
+			if (resolve_constant(arg_node, NULL))
+				return ARG_CONST;
+
+			break;
+
+		case NODE_KEYWORD:
+			if (resolve_register(arg_node, NULL))
+				return ARG_REGISTER;
+
+			break;
 	}
 
 	return ARG_NULL;
+}
+
+const char* instruction_to_str(Node_Instruction* inst)
+{
+	static char buffer[128];
+	char* str = buffer;
+
+	str = str_add(str, inst->token.ptr, inst->token.len);
+
+	for(u32 i=0; i<inst->args.count; ++i)
+	{
+		if (i == 0)
+			str = str_add(str, " ", 1);
+		else
+			str = str_add(str, ", ", 2);
+
+		const char* arg_str = arg_to_str(get_arg_type(inst->args.data[i]));
+		str = str_add(str, arg_str, (u32)strlen(arg_str));
+	}
+
+	*str = 0;
+
+	return buffer;
+}
+
+const char* arg_to_str(u8 arg_type)
+{
+	switch(arg_type)
+	{
+		case ARG_REGISTER: return "reg";
+		case ARG_CONST: return "cnst";
+	}
+
+	return "null";
 }
 
 /* CONSTANT */
@@ -345,18 +409,26 @@ bool resolve_constant(Node* node, Constant* cnst)
 }
 
 /* REGISTER */
-bool resolve_register(Node* node, Register** reg)
+bool resolve_register(Node* node, Register* out_reg)
 {
 	if (node->type != NODE_KEYWORD)
 		return false;
 
 	for(u32 i=0; i<MAX_REGISTERS; ++i)
 	{
+		Register* reg = &register_list[i];
 
-	}
+		// End of register list
+		if (reg->name == NULL)
+			return false;
 
-	if (reg)
-	{
+		if (!token_strcmp(node->token, reg->name))
+			continue;
+
+		if (out_reg)
+			*out_reg = *reg;
+
+		return true;
 	}
 
 	return false;

@@ -56,11 +56,14 @@ u32 ceil_4bit(u32 value)
 void coff_write(const char* path, Compile* compile)
 {
 	timer_push();
-	log_writel(LOG_MEDIUM, " Writing COFF");
+	log_writel(LOG_MEDIUM, "== Writing COFF ==");
 
 	out_begin();
 
 	// Header
+	out_debug_begin();
+	log_writel(LOG_DEV, "COFF header");
+
 	Coff_Header hdr;
 	memzero(&hdr, sizeof(hdr));
 
@@ -68,6 +71,7 @@ void coff_write(const char* path, Compile* compile)
 	hdr.section_num = compile->sections.count;
 
 	out_write_t(hdr);
+	out_debug_end();
 
 	String_List str_list;
 	memzero_t(str_list);
@@ -84,10 +88,13 @@ void coff_write(const char* path, Compile* compile)
 		c_section.flags = SCT_EXEC_CODE;
 		c_section.reloc_num = section.relocations.count;
 
-		out_write_t(c_section);
 		log_writel(LOG_DEV, "SECTION '%s'", c_section.name);
 		log_writel(LOG_DEV, "\tSize:  %d", c_section.size);
 		log_writel(LOG_DEV, "\tFlags: %x", c_section.flags);
+
+		out_debug_begin();
+		out_write_t(c_section);
+		out_debug_end();
 	}
 
 	u32 end_ptr = ceil_4bit(out_offset());
@@ -101,8 +108,12 @@ void coff_write(const char* path, Compile* compile)
 		c_section.data_ptr = end_ptr;
 
 		// Write data
+		log_writel(LOG_DEV, "'%s' data", c_section.name);
 		out_seek_push(end_ptr);
+
+		out_debug_begin();
 		out_write(section.data, section.data_size);
+		out_debug_end();
 
 		// Write relocations
 		out_seek(ceil_4bit(out_offset()));
@@ -120,6 +131,7 @@ void coff_write(const char* path, Compile* compile)
 				case RELOC_FUNC: c_reloc.type = RELOC_REL32; break;
 			}
 
+			log_writel(LOG_DEV, "Reloc: addr %08X, symbol %d", c_reloc.addr, c_reloc.sym_index);
 			out_write_t(c_reloc);
 		}
 
@@ -165,7 +177,7 @@ void coff_write(const char* path, Compile* compile)
 	out_write_u32(str_list.size + 4);
 	out_write(str_list.data, str_list.size);
 
-	log_writel(LOG_MEDIUM, " COFF complete (%.2f ms)\n", timer_pop_ms());
+	log_writel(LOG_MEDIUM, "== COFF complete (%.2f ms) ==\n", timer_pop_ms());
 
 	out_flush_file(path);
 }

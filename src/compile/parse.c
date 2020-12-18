@@ -151,7 +151,7 @@ void parse_file(const char* file, Parse* p)
 	in_load(file);
 
 	timer_push();
-	log_writel(LOG_MEDIUM, " Parsing '%s'", file);
+	log_writel(LOG_MEDIUM, "== Parsing '%s' ==", file);
 
 	// Iterate through all lines in this file
 	do
@@ -160,11 +160,15 @@ void parse_file(const char* file, Parse* p)
 		Token token;
 		while(token_read(&token))
 		{
+			log_codeline(LOG_DEV, token);
+
 			// Raw data
 			if (token.type == '#')
 			{
 				Node_Raw* raw = parse_raw(token);
-				node_push(&p->root, (Node*)raw);
+				if (raw)
+					node_push(&p->root, (Node*)raw);
+
 				adv_line();
 				continue;
 			}
@@ -177,7 +181,9 @@ void parse_file(const char* file, Parse* p)
 				{
 					case ':':
 						Node* lbl = parse_label(token);
-						node_push(&p->root, lbl);
+						if (lbl)
+							node_push(&p->root, lbl);
+
 						break;
 
 					default:
@@ -189,13 +195,15 @@ void parse_file(const char* file, Parse* p)
 			else
 			{
 				Node_Instruction* inst = parse_instruction(token);
-				node_push(&p->root, (Node*)inst);
+				if (inst)
+					node_push(&p->root, (Node*)inst);
+
 				adv_line();
 			}
 		}
 	} while(adv_line());
 
-	log_writel(LOG_MEDIUM, " Parse complete (%.2f ms)\n", timer_pop_ms());
+	log_writel(LOG_MEDIUM, "== Parse complete (%.2f ms) ==\n", timer_pop_ms());
 }
 
 Node* parse_expression(Token token)
@@ -235,7 +243,7 @@ Node* parse_label(Token token)
 /* INSTRUCTION */
 Node_Instruction* parse_instruction(Token token)
 {
-	log_write(LOG_DEV, "INST '%.*s'", token.len, token.ptr);
+	log_writel(LOG_DEV, "INST '%.*s'", token.len, token.ptr);
 
 	Node_Instruction* inst = node_make_t(Node_Instruction, token);
 	inst->type = NODE_INST;
@@ -247,30 +255,24 @@ Node_Instruction* parse_instruction(Token token)
 		Node* arg_node = parse_expression(arg_token);
 		if (arg_node == NULL)
 		{
-			//error_at(arg_token.ptr, arg_token.len, "Unexpected token, expected instruction argument");
-			break;
+			error_at(arg_token, "Unexpected token, expected instruction argument");
+			return NULL;
 		}
 
-		if (inst->args)
-			node_push(inst->args, arg_node);
-		else
-			inst->args = arg_node; 
-		inst->num_args++;
-
-		log_write(LOG_DEV, " '%.*s'", arg_node->token.len, arg_node->token.ptr);
+		array_add(inst->args, arg_node);
+		log_writel(LOG_DEV, " '%.*s'", arg_node->token.len, arg_node->token.ptr);
 
 		Token separator;
 		if (token_read(&separator))
 		{
 			if (separator.type != ',')
 			{
-				//error_at(separator.ptr, separator.len, "Unexpected token, expected ','");
-				break;
+				error_at(separator, "Unexpected token, expected ','");
+				return NULL;
 			}
 		}
 	}
 
-	log_writel(LOG_DEV, "");
 	return inst;
 }
 

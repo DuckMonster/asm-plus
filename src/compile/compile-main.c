@@ -15,9 +15,12 @@ int main(int argc, const char** argv)
 
 	Compile compile;
 	compile_parsed(&parse, &compile);
-	coff_write(argv[2], &compile);
 
-	log_writel(LOG_IMPORTANT, "  %s => %s (%.2f ms)", argv[1], argv[2], timer_pop_ms());
+	if (!error_count)
+	{
+		coff_write(argv[2], &compile);
+		log_writel(LOG_IMPORTANT, "  %s => %s (%.2f ms)", argv[1], argv[2], timer_pop_ms());
+	}
 
 	system("pause");
 	return;

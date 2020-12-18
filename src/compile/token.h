@@ -2,6 +2,7 @@
 /* TOKEN PARSING */
 enum
 {
+	TOKEN_NULL,
 	TOKEN_KEYWORD = 256,
 	TOKEN_CONST,
 	TOKEN_CONST_HEX,
@@ -25,14 +26,25 @@ typedef struct
 
 inline bool token_eq(Token a, Token b)
 {
-	return a.ptr == b.ptr || (a.len == b.len && strncmp(a.ptr, b.ptr, a.len) == 0);
+	return (a.ptr == b.ptr && a.len == b.len) || (a.len == b.len && strncmp(a.ptr, b.ptr, a.len) == 0);
 }
-inline bool token_cstr_cmp(Token tok, const char* str)
+inline bool token_strcmp(Token tok, const char* str)
 {
 	u32 len = (u32)strlen(str);
 	if (tok.len != len) return false;
 
 	return memcmp(tok.ptr, str, len) == 0;
+}
+inline Token token_combine(Token a, Token b)
+{
+	Token token_min = a.ptr < b.ptr ? a : b;
+	Token token_max = a.ptr > b.ptr ? a : b;
+
+	Token result;
+	result.type = TOKEN_NULL;
+	result.ptr = token_min.ptr;
+	result.len = (token_max.ptr - token_min.ptr) + token_max.len;
+	return result;
 }
 inline Token token_from_str(const char* str)
 {
