@@ -12,7 +12,7 @@ enum
 	NODE_KEYWORD,
 	NODE_LABEL,
 	NODE_CONST,
-	NODE_MEM,
+	NODE_DEREF,
 	NODE_RAW,
 };
 
@@ -46,6 +46,7 @@ typedef struct
 } Node_Instruction;
 
 Node_Instruction* parse_instruction(Token token);
+#define inst_arg(inst, idx) (inst->args.data[idx])
 
 /* CONST */
 typedef struct
@@ -57,15 +58,15 @@ typedef struct
 } Node_Const;
 Node_Const* parse_const(Token token);
 
-/* MEMORY */
+/* DEREFERENCE */
 typedef struct
 {
 	NODE_IMPL();
 
 	Node* expr;
-} Node_Memory;
+} Node_Dereference;
 
-Node_Memory* parse_memory(Token token);
+Node_Dereference* parse_dereference(Token token);
 
 /* RAW */
 typedef struct

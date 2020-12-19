@@ -84,6 +84,9 @@ typedef struct
 	u8 num_args;
 	u8 args[MAX_ARGS];
 	Instr_Func func;
+
+	// Transient data
+	Token token;
 } Instruction;
 extern Instruction instruction_list[MAX_INSTRUCTIONS];
 
@@ -93,13 +96,16 @@ bool check_instruction_args(Node_Instruction* inst_node);
 u8 get_arg_type(Node* arg_node);
 
 const char* instruction_to_str(Node_Instruction* inst);
-const char* arg_to_str(u8 arg_type);
+const char* arg_to_str(Node* node);
 
 /* CONSTANT */
 typedef struct
 {
 	u32 value;
 	u32 size;
+
+	// Transient data
+	Token token;
 } Constant;
 
 bool resolve_constant(Node* node, Constant* cnst);
@@ -111,6 +117,10 @@ typedef struct
 {
 	const char* name;
 	u32 code;
+
+	// Transient data
+	bool dereference;
+	Token token;
 } Register;
 extern Register register_list[MAX_REGISTERS];
 

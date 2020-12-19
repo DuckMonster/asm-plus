@@ -23,6 +23,7 @@ typedef struct
 	const char* ptr;
 	u32 len;
 } Token;
+extern Token null_token;
 
 inline bool token_eq(Token a, Token b)
 {
@@ -35,7 +36,7 @@ inline bool token_strcmp(Token tok, const char* str)
 
 	return memcmp(tok.ptr, str, len) == 0;
 }
-inline Token token_combine(Token a, Token b)
+inline Token token_join(Token a, Token b)
 {
 	Token token_min = a.ptr < b.ptr ? a : b;
 	Token token_max = a.ptr > b.ptr ? a : b;

@@ -1,8 +1,11 @@
 main:
 	;mov b, 0xAA
 	;#0xFF 0x55
+	mov a, 0x50
+	mov b, 0xABBADEAD
 	mov a, b
-	mov b, a
+	mov a, [b]
+	mob [a], b
 
 end:
 	jmp 0x10

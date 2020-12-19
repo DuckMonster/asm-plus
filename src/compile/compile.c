@@ -281,7 +281,15 @@ void compile_instruction(Compile* c, Node_Instruction* inst_node)
 	Instruction inst;
 	if (!resolve_instruction(inst_node, &inst))
 	{
-		error_at(inst_node->token, "Unknown instruction '%s'", token_to_str(inst_node->token));
+		if (inst_node->args.count > 0)
+		{
+			Node* last_arg = inst_node->args.data[inst_node->args.count - 1];
+			error_at(token_join(inst_node->token, last_arg->token), "Unknown instruction '%s'", instruction_to_str(inst_node));
+		}
+		else
+		{
+			error_at(inst_node->token, "Unknown instruction '%s'", instruction_to_str(inst_node));
+		}
 		return;
 	}
 
@@ -314,6 +322,7 @@ bool resolve_instruction(Node_Instruction* inst_node, Instruction* out_inst)
 
 		// .. oh, you're still here? Must mean youre the one!
 		*out_inst = *inst;
+		out_inst->token = token_join(inst_node->token, inst_node->args.data[inst_node->args.count - 1]->token);
 		return true;
 
 arg_mismatch:
@@ -340,20 +349,11 @@ bool check_instruction_args(Node_Instruction* inst_node)
 
 u8 get_arg_type(Node* arg_node)
 {
-	switch(arg_node->type)
-	{
-		case NODE_CONST:
-			if (resolve_constant(arg_node, NULL))
-				return ARG_CONST;
+	if (resolve_constant(arg_node, NULL))
+		return ARG_CONST;
 
-			break;
-
-		case NODE_KEYWORD:
-			if (resolve_register(arg_node, NULL))
-				return ARG_REGISTER;
-
-			break;
-	}
+	if (resolve_register(arg_node, NULL))
+		return ARG_REGISTER;
 
 	return ARG_NULL;
 }
@@ -372,7 +372,7 @@ const char* instruction_to_str(Node_Instruction* inst)
 		else
 			str = str_add(str, ", ", 2);
 
-		const char* arg_str = arg_to_str(get_arg_type(inst->args.data[i]));
+		const char* arg_str = arg_to_str(inst_arg(inst, i));
 		str = str_add(str, arg_str, (u32)strlen(arg_str));
 	}
 
@@ -381,11 +381,21 @@ const char* instruction_to_str(Node_Instruction* inst)
 	return buffer;
 }
 
-const char* arg_to_str(u8 arg_type)
+const char* arg_to_str(Node* node)
 {
+	u8 arg_type = get_arg_type(node);
 	switch(arg_type)
 	{
-		case ARG_REGISTER: return "reg";
+		case ARG_REGISTER:
+			Register reg;
+			resolve_register(node, &reg);
+
+			if (reg.dereference)
+				return "[reg]";
+			else
+				return "reg";
+			break;
+
 		case ARG_CONST: return "cnst";
 	}
 
@@ -403,6 +413,7 @@ bool resolve_constant(Node* node, Constant* cnst)
 		Node_Const* node_cnst = (Node_Const*)node;
 		cnst->value = node_cnst->value;
 		cnst->size = node_cnst->size;
+		cnst->token = node->token;
 	}
 
 	return true;
@@ -411,6 +422,14 @@ bool resolve_constant(Node* node, Constant* cnst)
 /* REGISTER */
 bool resolve_register(Node* node, Register* out_reg)
 {
+	// Dereference registers!
+	Node_Dereference* deref = NULL;
+	if (node->type == NODE_DEREF)
+	{
+		deref = (Node_Dereference*)node;
+		node = deref->expr;
+	}
+
 	if (node->type != NODE_KEYWORD)
 		return false;
 
@@ -426,7 +445,16 @@ bool resolve_register(Node* node, Register* out_reg)
 			continue;
 
 		if (out_reg)
+		{
 			*out_reg = *reg;
+			out_reg->token = node->token;
+
+			if (deref)
+			{
+				out_reg->token = deref->token;
+				out_reg->dereference = true;
+			}
+		}
 
 		return true;
 	}

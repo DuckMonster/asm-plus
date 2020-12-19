@@ -224,7 +224,7 @@ Node* parse_expression(Token token)
 			break;
 
 		case '[':
-			result = (Node*)parse_memory(token);
+			result = (Node*)parse_dereference(token);
 			break;
 	}
 
@@ -259,7 +259,10 @@ Node_Instruction* parse_instruction(Token token)
 			return NULL;
 		}
 
-		array_add(inst->args, arg_node);
+		//array_add(inst->args, arg_node);
+		_array_add((Array*)&inst->args, sizeof(arg_node));
+		inst->args.data[inst->args.count - 1] = arg_node;
+
 		log_writel(LOG_DEV, " '%.*s'", arg_node->token.len, arg_node->token.ptr);
 
 		Token separator;
@@ -295,31 +298,31 @@ Node_Const* parse_const(Token token)
 			break;
 
 		case TOKEN_CONST_BIN:
-			//error_at(token.ptr, token.len, "Sorry! Binary constants not implemented yet :(");
+			error_at(token, "Sorry! Binary constants not implemented yet :(");
 			break;
 	}
 
 	return cnst;
 }
 
-/* MEMORY */
-Node_Memory* parse_memory(Token token)
+/* DEREFERENCE */
+Node_Dereference* parse_dereference(Token token)
 {
 	Token expr_token;
 	if (!token_read(&expr_token))
 	{
-		//error_at(expr_token.ptr, expr_token.len, "Expected memory expression");
+		error_at(expr_token, "Expected dereference expression");
 		return NULL;
 	}
 
-	Node_Memory* mem = node_make_t(Node_Memory, token);
-	mem->type = NODE_MEM;
-	mem->expr = parse_expression(expr_token);
+	Node_Dereference* deref = node_make_t(Node_Dereference, token);
+	deref->type = NODE_DEREF;
+	deref->expr = parse_expression(expr_token);
 
 	// No expression parsed
-	if (mem->expr == NULL)
+	if (deref->expr == NULL)
 	{
-		//error_at(expr_token.ptr, expr_token.len, "Unexpected token, expected memory expression");
+		error_at(expr_token, "Unexpected token, expected memory expression");
 		return NULL;
 	}
 
@@ -327,12 +330,12 @@ Node_Memory* parse_memory(Token token)
 	token_read(&expr_token);
 	if (expr_token.type != ']')
 	{
-		//error_at(token.ptr, token.len, "Bracket mismatch, expected ']'");
+		error_at(token, "Bracket mismatch, expected ']'");
 		return NULL;
 	}
 
-	mem->token.len = (expr_token.ptr - mem->token.ptr) + 1;
-	return mem;
+	deref->token = token_join(deref->token, expr_token);
+	return deref;
 }
 
 /* RAW */
